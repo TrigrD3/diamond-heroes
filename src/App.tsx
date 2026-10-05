@@ -28,12 +28,13 @@ import { MatchSimulationView } from './components/MatchSimulationView';
 import { PlayerCard } from './components/PlayerCard';
 import { ProShop } from './components/ProShop';
 import { CardsManager } from './components/CardsManager';
+import { TrainingFacility } from './components/TrainingFacility';
 import { StadiumManager } from './components/StadiumManager';
 import { LeagueHub } from './components/LeagueHub';
 import { QuestsModal } from './components/QuestsModal';
 import { sound } from './utils/audio';
 
-type ActiveTab = 'MATCH' | 'CARDS' | 'PLAYER' | 'SHOP' | 'STADIUM' | 'LEAGUE';
+type ActiveTab = 'MATCH' | 'CARDS' | 'TRAINING' | 'PLAYER' | 'SHOP' | 'STADIUM' | 'LEAGUE';
 
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('MATCH');
@@ -155,12 +156,16 @@ export function App() {
   };
 
   // Open Batter Card Pack
-  const handleOpenPack = (type: 'Standard' | 'Elite') => {
-    const cost = type === 'Standard' ? 600 : 1800;
-    if (coins < cost) return;
-    setCoins((c) => c - cost);
+  const handleOpenPack = (type: 'Standard' | 'Elite' | 'Premium') => {
+    const costCoins = type === 'Standard' ? 600 : type === 'Elite' ? 1800 : 0;
+    const costCash = type === 'Premium' ? 20 : 0;
 
-    const pool = type === 'Elite'
+    if (costCoins > 0) setCoins((c) => Math.max(0, c - costCoins));
+    if (costCash > 0) setCash((c) => Math.max(0, c - costCash));
+
+    const pool = type === 'Premium'
+      ? CARD_PACK_POOL.filter((c) => c.grade === 'Hero')
+      : type === 'Elite'
       ? CARD_PACK_POOL.filter((c) => c.grade === 'Hero' || c.grade === 'Elite')
       : CARD_PACK_POOL;
     const drawn = pool[Math.floor(Math.random() * pool.length)];
@@ -676,6 +681,16 @@ export function App() {
             🃏 Batter Cards (Draft)
           </button>
           <button
+            onClick={() => setActiveTab('TRAINING')}
+            className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+              activeTab === 'TRAINING'
+                ? 'bg-amber-500 text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+            }`}
+          >
+            🏋️ Training & Cages
+          </button>
+          <button
             onClick={() => setActiveTab('PLAYER')}
             className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
               activeTab === 'PLAYER'
@@ -795,6 +810,21 @@ export function App() {
               cash={cash}
               onOpenPack={handleOpenPack}
               onSwapCardPosition={() => {}}
+            />
+          </div>
+        )}
+
+        {activeTab === 'TRAINING' && (
+          <div className="max-w-4xl mx-auto w-full">
+            <TrainingFacility
+              playerStats={playerStats}
+              coins={coins}
+              cash={cash}
+              energy={energy}
+              level={level}
+              onStatsUpdated={(newStats) => setPlayerStats(newStats)}
+              onCoinsDeducted={(amt) => setCoins((c) => Math.max(0, c - amt))}
+              onEnergyUsed={(amt) => setEnergy((e) => Math.max(0, e - amt))}
             />
           </div>
         )}

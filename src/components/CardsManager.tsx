@@ -7,7 +7,7 @@ interface CardsManagerProps {
   cards: BatterCard[];
   coins: number;
   cash: number;
-  onOpenPack: (packType: 'Standard' | 'Elite') => void;
+  onOpenPack: (packType: 'Standard' | 'Elite' | 'Premium') => void;
   onSwapCardPosition: (cardId: string, position: string) => void;
 }
 
@@ -18,23 +18,35 @@ export const CardsManager: React.FC<CardsManagerProps> = ({
   onOpenPack,
 }) => {
   const [packOpeningResult, setPackOpeningResult] = useState<BatterCard | null>(null);
+  const [isOpeningPack, setIsOpeningPack] = useState<boolean>(false);
 
-  const handleBuyPack = (type: 'Standard' | 'Elite') => {
-    const cost = type === 'Standard' ? 600 : 1800;
-    if (coins < cost) return;
+  const handleBuyPack = (type: 'Standard' | 'Elite' | 'Premium') => {
+    const costCoins = type === 'Standard' ? 600 : type === 'Elite' ? 1800 : 0;
+    const costCash = type === 'Premium' ? 20 : 0;
+
+    if (costCoins > 0 && coins < costCoins) return;
+    if (costCash > 0 && cash < costCash) return;
 
     sound.playCoin();
-    sound.playBatCrack('Homerun');
+    sound.playSwingWhoosh();
+    setIsOpeningPack(true);
 
     // Filter pack pool
     const candidates =
-      type === 'Elite'
+      type === 'Premium'
+        ? CARD_PACK_POOL.filter((c) => c.grade === 'Hero')
+        : type === 'Elite'
         ? CARD_PACK_POOL.filter((c) => c.grade === 'Hero' || c.grade === 'Elite')
         : CARD_PACK_POOL;
     const drawn = candidates[Math.floor(Math.random() * candidates.length)];
 
-    setPackOpeningResult(drawn);
-    onOpenPack(type);
+    setTimeout(() => {
+      sound.playCheer();
+      sound.playBatCrack('Homerun');
+      setIsOpeningPack(false);
+      setPackOpeningResult(drawn);
+      onOpenPack(type);
+    }, 1200);
   };
 
   return (
@@ -43,60 +55,83 @@ export const CardsManager: React.FC<CardsManagerProps> = ({
       <div className="flex items-center justify-between pb-4 border-b border-slate-700">
         <div>
           <h2 className="text-xl font-black text-white flex items-center gap-2">
-            <span>🃏 Special Batter Cards (Syntasia Recruiter)</span>
+            <span>🃏 Special Batter Cards (Syntasia Recruiter Gacha)</span>
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
             Collect Hero, Elite, Rare, and Normal cards with S/A/B/C classes and unique skills
           </p>
         </div>
         <div className="flex gap-3 text-sm font-bold">
-          <span className="text-amber-400">🪙 {coins} Coins</span>
+          <span className="text-amber-400">🪙 {coins.toLocaleString()} Coins</span>
           <span className="text-emerald-400">💵 {cash} Cash</span>
         </div>
       </div>
 
-      {/* Card Packs Purchase Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Card Packs Purchase Section (Gacha Draft) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Standard Pack */}
-        <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl flex items-center justify-between">
+        <div className="bg-slate-800/80 border border-slate-700 p-4 rounded-xl flex flex-col justify-between">
           <div>
             <div className="text-sm font-black text-sky-400">⚾ Standard Draft Pack</div>
             <div className="text-xs text-slate-400 mt-1">Grades: Normal, Rare, Elite (Classes C-A)</div>
             <div className="text-sm font-extrabold text-amber-400 mt-2">🪙 600 Coins</div>
           </div>
           <button
-            disabled={coins < 600}
+            disabled={coins < 600 || isOpeningPack}
             onClick={() => handleBuyPack('Standard')}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-transform ${
-              coins >= 600
+            className={`mt-4 w-full py-2 rounded-xl text-xs font-black uppercase transition-transform ${
+              coins >= 600 && !isOpeningPack
                 ? 'bg-sky-500 hover:bg-sky-400 text-slate-950 active:scale-95 cursor-pointer shadow-md'
                 : 'bg-slate-700 text-slate-500 cursor-not-allowed'
             }`}
           >
-            Open Pack
+            {isOpeningPack ? 'Opening...' : 'Draft (600 🪙)'}
           </button>
         </div>
 
         {/* Elite Hero Pack */}
-        <div className="bg-gradient-to-r from-amber-950/40 to-purple-950/40 border border-amber-500/60 p-4 rounded-xl flex items-center justify-between">
+        <div className="bg-gradient-to-r from-amber-950/40 to-purple-950/40 border border-amber-500/60 p-4 rounded-xl flex flex-col justify-between">
           <div>
             <div className="text-sm font-black text-amber-400 flex items-center gap-1.5">
-              <span>⭐ Elite Hero Draft Pack</span>
+              <span>⭐ Elite Hero Draft</span>
               <span className="text-[10px] bg-red-600 text-white px-1.5 py-0.2 rounded uppercase">Hot</span>
             </div>
             <div className="text-xs text-slate-400 mt-1">High chance of Grade Hero / Elite (Class S & A)</div>
             <div className="text-sm font-extrabold text-amber-400 mt-2">🪙 1,800 Coins</div>
           </div>
           <button
-            disabled={coins < 1800}
+            disabled={coins < 1800 || isOpeningPack}
             onClick={() => handleBuyPack('Elite')}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase transition-transform ${
-              coins >= 1800
+            className={`mt-4 w-full py-2 rounded-xl text-xs font-black uppercase transition-transform ${
+              coins >= 1800 && !isOpeningPack
                 ? 'bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 text-slate-950 active:scale-95 cursor-pointer shadow-lg'
                 : 'bg-slate-700 text-slate-500 cursor-not-allowed'
             }`}
           >
-            Open Pack
+            {isOpeningPack ? 'Opening...' : 'Draft (1,800 🪙)'}
+          </button>
+        </div>
+
+        {/* Premium Guaranteed Hero Cash Pack */}
+        <div className="bg-gradient-to-r from-emerald-950/40 to-cyan-950/40 border border-emerald-500/60 p-4 rounded-xl flex flex-col justify-between">
+          <div>
+            <div className="text-sm font-black text-emerald-400 flex items-center gap-1.5">
+              <span>💎 Premium All-Star Draft</span>
+              <span className="text-[10px] bg-emerald-600 text-white px-1.5 py-0.2 rounded uppercase">Guaranteed</span>
+            </div>
+            <div className="text-xs text-slate-400 mt-1">100% Guaranteed Grade Hero (Class S All-Star)</div>
+            <div className="text-sm font-extrabold text-emerald-400 mt-2">💵 20 Cash</div>
+          </div>
+          <button
+            disabled={cash < 20 || isOpeningPack}
+            onClick={() => handleBuyPack('Premium')}
+            className={`mt-4 w-full py-2 rounded-xl text-xs font-black uppercase transition-transform ${
+              cash >= 20 && !isOpeningPack
+                ? 'bg-gradient-to-r from-emerald-400 to-teal-400 hover:from-emerald-300 text-slate-950 active:scale-95 cursor-pointer shadow-lg'
+                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+            }`}
+          >
+            {isOpeningPack ? 'Opening...' : 'Draft (20 💵)'}
           </button>
         </div>
       </div>
