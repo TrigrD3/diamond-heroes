@@ -436,10 +436,10 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       // 2. Pitcher on Mound
       ctx.save();
       const pX = 400;
-      const pY = 248;
+      const pY = 250;
       if (pitcherSpriteRef.current) {
-        const bounce = pitchPrompt === 'PITCHING' ? Math.sin(now / 80) * 3 : 0;
-        ctx.drawImage(pitcherSpriteRef.current, pX - 35, pY - 72 + bounce, 70, 78);
+        const bounce = pitchPrompt === 'PITCHING' ? Math.sin(now / 90) * 2.5 : 0;
+        ctx.drawImage(pitcherSpriteRef.current, pX - 35, pY - 70 + bounce, 70, 64);
       } else {
         ctx.fillStyle = '#16a34a';
         ctx.beginPath();
@@ -614,7 +614,8 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       if (batterSpriteRef.current) {
         ctx.translate(bX, bY);
         ctx.rotate(batAngle);
-        ctx.drawImage(batterSpriteRef.current, -80, -170, 160, 170);
+        // Batter sprite is 130x187
+        ctx.drawImage(batterSpriteRef.current, -65, -170, 130, 187);
       } else {
         ctx.fillStyle = '#1d4ed8';
         ctx.beginPath();
