@@ -34,13 +34,14 @@ import { LeagueHub } from './components/LeagueHub';
 import { QuestsModal } from './components/QuestsModal';
 import { sound } from './utils/audio';
 
-type ActiveTab = 'MATCH' | 'CARDS' | 'TRAINING' | 'PLAYER' | 'SHOP' | 'STADIUM' | 'LEAGUE';
+type ModalType = 'CARDS' | 'TRAINING' | 'PLAYER' | 'SHOP' | 'STADIUM' | 'LEAGUE' | null;
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>('MATCH');
+  // Unified Game View - Stadium match is the permanent persistent world
+  const [activeModal, setActiveModal] = useState<ModalType>(null);
 
-  // Match View Mode: 'SIMULATION' (lineup card & teammate simulation) or 'BAT' (player 3D duel)
-  const [matchMode, setMatchMode] = useState<'SIMULATION' | 'BAT'>('SIMULATION');
+  // Match View Mode: 'BAT' (authentic 3D duel) or 'SIMULATION' (lineup card & teammate simulation)
+  const [matchMode, setMatchMode] = useState<'SIMULATION' | 'BAT'>('BAT');
   const [gameSpeed, setGameSpeed] = useState<number>(1);
   const [simBatterIdx, setSimBatterIdx] = useState<number>(0);
   const [simBanner, setSimBanner] = useState<string | null>(null);
@@ -233,12 +234,12 @@ export function App() {
     setMatchMode('SIMULATION');
     setMatchHistory([`Match started: Texas vs ${oppToUse.name}!`]);
     setMatchEndResult(null);
-    setActiveTab('MATCH');
+    setActiveModal(null);
   };
 
   // Teammate & Opponent At-Bat Simulator Effect
   useEffect(() => {
-    if (activeTab !== 'MATCH' || matchMode !== 'SIMULATION' || matchEndResult) return;
+    if (activeModal !== null || matchMode !== 'SIMULATION' || matchEndResult) return;
 
     const delay = Math.max(400, Math.round(1800 / gameSpeed));
     const timer = setTimeout(() => {
@@ -350,7 +351,7 @@ export function App() {
     }, delay);
 
     return () => clearTimeout(timer);
-  }, [activeTab, matchMode, simBatterIdx, gameSpeed, awayLineup, homeLineup, matchEndResult]);
+  }, [activeModal, matchMode, simBatterIdx, gameSpeed, awayLineup, homeLineup, matchEndResult]);
 
   // Refill Energy with Cash
   const handleRefillEnergy = () => {
@@ -649,7 +650,7 @@ export function App() {
 
             {statPoints > 0 && (
               <button
-                onClick={() => setActiveTab('PLAYER')}
+                onClick={() => setActiveModal('PLAYER')}
                 className="bg-amber-500 text-slate-950 font-black px-2.5 py-1.5 rounded-xl animate-bounce flex items-center gap-1 shadow-md cursor-pointer"
               >
                 ⭐ +{statPoints} SKILL PTS
@@ -658,223 +659,243 @@ export function App() {
           </div>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Authentic Game Hub Navigation Over Stadium */}
         <div className="max-w-6xl mx-auto px-4 flex gap-1 sm:gap-2 overflow-x-auto pb-2 pt-1 border-t border-slate-800/80">
           <button
-            onClick={() => setActiveTab('MATCH')}
+            onClick={() => setActiveModal(null)}
             className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-              activeTab === 'MATCH'
-                ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+              activeModal === null
+                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400'
+                : 'text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800'
             }`}
           >
-            ⚾ Batting Duel
+            🏟️ Stadium Diamond
           </button>
           <button
-            onClick={() => setActiveTab('CARDS')}
+            onClick={() => setActiveModal('CARDS')}
             className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-              activeTab === 'CARDS'
+              activeModal === 'CARDS'
                 ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800'
             }`}
           >
-            🃏 Batter Cards (Draft)
+            🃏 Recruiter (Draft)
           </button>
           <button
-            onClick={() => setActiveTab('TRAINING')}
+            onClick={() => setActiveModal('TRAINING')}
             className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-              activeTab === 'TRAINING'
+              activeModal === 'TRAINING'
                 ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800'
             }`}
           >
-            🏋️ Training & Cages
+            🏋️ Training Facility
           </button>
           <button
-            onClick={() => setActiveTab('PLAYER')}
+            onClick={() => setActiveModal('PLAYER')}
             className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-              activeTab === 'PLAYER'
+              activeModal === 'PLAYER'
                 ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800'
             }`}
           >
             ⭐ My Slugger {statPoints > 0 && '•'}
           </button>
           <button
-            onClick={() => setActiveTab('SHOP')}
+            onClick={() => setActiveModal('SHOP')}
             className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-              activeTab === 'SHOP'
+              activeModal === 'SHOP'
                 ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800'
             }`}
           >
             🏪 Pro Shop
           </button>
           <button
-            onClick={() => setActiveTab('STADIUM')}
+            onClick={() => setActiveModal('STADIUM')}
             className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-              activeTab === 'STADIUM'
+              activeModal === 'STADIUM'
                 ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800'
             }`}
           >
-            🏟️ Stadium
+            🏟️ Stadium Upgrades
           </button>
           <button
-            onClick={() => setActiveTab('LEAGUE')}
+            onClick={() => setActiveModal('LEAGUE')}
             className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-              activeTab === 'LEAGUE'
+              activeModal === 'LEAGUE'
                 ? 'bg-amber-500 text-slate-950 shadow-md'
-                : 'text-slate-400 hover:text-white hover:bg-slate-800'
+                : 'text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800'
             }`}
           >
-            🏆 Leagues
+            🏆 League Season
           </button>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-4 flex flex-col justify-center">
-        {activeTab === 'MATCH' && (
-          <div className="flex flex-col items-center justify-center space-y-3">
-            {/* View Mode Switching: Simulation View vs Batting Duel */}
-            {matchMode === 'SIMULATION' ? (
-              <MatchSimulationView
-                scoreboard={scoreboard}
-                homeLineup={homeLineup}
-                awayLineup={awayLineup}
-                homeTeamName="Texas"
-                awayTeamName={currentOpponent.name}
-                currentSimBatterIndex={simBatterIdx}
-                simOutcomeBanner={simBanner}
-                onSpeedChange={(spd) => setGameSpeed(spd)}
-                gameSpeed={gameSpeed}
-                onSkipToUserAtBat={() => {
-                  sound.playCheer();
-                  setMatchMode('BAT');
-                }}
-              />
-            ) : (
-              <BattingField
-                opponent={currentOpponent}
-                playerStats={playerStats}
-                playerGear={playerGear}
-                activeCards={cards}
-                scoreboard={scoreboard}
-                season={season}
-                comboGauge={comboGauge}
-                isAutoHomeRunReady={isAutoHomeRunReady}
-                score={matchScore}
-                onInningEvent={handleInningEvent}
-                onBatterChanged={handleBatterChanged}
-                onOpenLeaderboard={() => alert('Global Facebook Leaderboard: Rank #12 (Score: ' + matchScore + ')')}
-                onActivateComboFever={() => {
-                  if (isAutoHomeRunReady) sound.playCheer();
-                }}
-              />
-            )}
+      {/* Main Content Area: Persistent Stadium Diamond World */}
+      <main className="flex-1 max-w-6xl w-full mx-auto p-4 flex flex-col justify-center relative">
+        <div className="flex flex-col items-center justify-center space-y-3">
+          {/* View Mode Switching: Simulation View vs Batting Duel */}
+          {matchMode === 'SIMULATION' ? (
+            <MatchSimulationView
+              scoreboard={scoreboard}
+              homeLineup={homeLineup}
+              awayLineup={awayLineup}
+              homeTeamName="Texas"
+              awayTeamName={currentOpponent.name}
+              currentSimBatterIndex={simBatterIdx}
+              simOutcomeBanner={simBanner}
+              onSpeedChange={(spd) => setGameSpeed(spd)}
+              gameSpeed={gameSpeed}
+              onSkipToUserAtBat={() => {
+                sound.playCheer();
+                setMatchMode('BAT');
+              }}
+            />
+          ) : (
+            <BattingField
+              opponent={currentOpponent}
+              playerStats={playerStats}
+              playerGear={playerGear}
+              activeCards={cards}
+              scoreboard={scoreboard}
+              season={season}
+              comboGauge={comboGauge}
+              isAutoHomeRunReady={isAutoHomeRunReady}
+              score={matchScore}
+              onInningEvent={handleInningEvent}
+              onBatterChanged={handleBatterChanged}
+              onOpenLeaderboard={() => alert('Global Facebook Leaderboard: Rank #12 (Score: ' + matchScore + ')')}
+              onActivateComboFever={() => {
+                if (isAutoHomeRunReady) sound.playCheer();
+              }}
+            />
+          )}
 
-            {/* Quick Match Mode Switcher & In-Game Announcer Bar */}
-            <div className="max-w-[800px] mx-auto w-full bg-[#181a20]/95 border-2 border-[#334155] rounded-xl p-3 text-xs flex items-center justify-between shadow-xl">
-              <div className="flex items-center gap-2 overflow-hidden">
-                <span className="font-black text-amber-400 shrink-0">📢 ANNOUNCER:</span>
-                <span className="text-slate-200 truncate font-mono">
-                  {matchMode === 'SIMULATION'
-                    ? `Teammates in play! Watch simulation or click ⏩ to bat with Andy (#3 in lineup)!`
-                    : matchHistory[0]}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={() => setMatchMode(matchMode === 'SIMULATION' ? 'BAT' : 'SIMULATION')}
-                  className="text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 font-black px-2.5 py-1 rounded-lg border border-slate-600 transition-colors cursor-pointer"
-                >
-                  {matchMode === 'SIMULATION' ? '🏏 Switch to Batting Duel' : '📋 Switch to Lineup View'}
-                </button>
-                <button
-                  onClick={() => startNewMatch()}
-                  className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
-                >
-                  Restart (5⚡)
-                </button>
-              </div>
+          {/* Quick Match Mode Switcher & In-Game Announcer Bar */}
+          <div className="max-w-[800px] mx-auto w-full bg-[#181a20]/95 border-2 border-[#334155] rounded-xl p-3 text-xs flex items-center justify-between shadow-xl">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <span className="font-black text-amber-400 shrink-0">📢 ANNOUNCER:</span>
+              <span className="text-slate-200 truncate font-mono">
+                {matchMode === 'SIMULATION'
+                  ? `Teammates in play! Watch simulation or click ⏩ to bat with Andy (#3 in lineup)!`
+                  : matchHistory[0]}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                onClick={() => setMatchMode(matchMode === 'SIMULATION' ? 'BAT' : 'SIMULATION')}
+                className="text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 font-black px-2.5 py-1 rounded-lg border border-slate-600 transition-colors cursor-pointer"
+              >
+                {matchMode === 'SIMULATION' ? '🏏 Switch to Batting Duel' : '📋 Switch to Lineup View'}
+              </button>
+              <button
+                onClick={() => startNewMatch()}
+                className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
+              >
+                Restart (5⚡)
+              </button>
             </div>
           </div>
-        )}
+        </div>
 
-        {activeTab === 'CARDS' && (
-          <div className="max-w-4xl mx-auto w-full">
-            <CardsManager
-              cards={cards}
-              coins={coins}
-              cash={cash}
-              onOpenPack={handleOpenPack}
-              onSwapCardPosition={() => {}}
-            />
-          </div>
-        )}
+        {/* Modal Overlays over Stadium */}
+        {activeModal && (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-6 animate-in fade-in">
+            <div className="relative max-w-4xl w-full max-h-[92vh] bg-slate-900 border-2 border-slate-700 rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+              {/* Header Bar */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 bg-slate-950/80">
+                <div className="flex items-center gap-2 font-black text-amber-400 text-base uppercase tracking-wider">
+                  {activeModal === 'CARDS' && '🃏 Recruiter Draft & Roster Deck'}
+                  {activeModal === 'TRAINING' && '🏋️ Athlete Training Facility'}
+                  {activeModal === 'PLAYER' && '⭐ My Slugger Profile & Upgrades'}
+                  {activeModal === 'SHOP' && '🏪 Pro Gear Shop'}
+                  {activeModal === 'STADIUM' && '🏟️ Stadium Expansion'}
+                  {activeModal === 'LEAGUE' && '🏆 Season 1 League Schedule'}
+                </div>
+                <button
+                  onClick={() => setActiveModal(null)}
+                  className="w-8 h-8 rounded-lg bg-slate-800 hover:bg-red-600 hover:text-white text-slate-400 font-black text-lg flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
 
-        {activeTab === 'TRAINING' && (
-          <div className="max-w-4xl mx-auto w-full">
-            <TrainingFacility
-              playerStats={playerStats}
-              coins={coins}
-              cash={cash}
-              energy={energy}
-              level={level}
-              onStatsUpdated={(newStats) => setPlayerStats(newStats)}
-              onCoinsDeducted={(amt) => setCoins((c) => Math.max(0, c - amt))}
-              onEnergyUsed={(amt) => setEnergy((e) => Math.max(0, e - amt))}
-            />
-          </div>
-        )}
+              {/* Modal Body */}
+              <div className="p-4 sm:p-6 overflow-y-auto max-h-[82vh]">
+                {activeModal === 'CARDS' && (
+                  <CardsManager
+                    cards={cards}
+                    coins={coins}
+                    cash={cash}
+                    onOpenPack={handleOpenPack}
+                    onSwapCardPosition={() => {}}
+                  />
+                )}
 
-        {activeTab === 'PLAYER' && (
-          <div className="max-w-4xl mx-auto w-full">
-            <PlayerCard
-              stats={playerStats}
-              coins={coins}
-              level={level}
-              exp={exp}
-              maxExp={maxExp}
-              statPoints={statPoints}
-              onUpgradeStat={handleUpgradeStat}
-            />
-          </div>
-        )}
+                {activeModal === 'TRAINING' && (
+                  <TrainingFacility
+                    playerStats={playerStats}
+                    coins={coins}
+                    cash={cash}
+                    energy={energy}
+                    level={level}
+                    onStatsUpdated={(newStats) => setPlayerStats(newStats)}
+                    onCoinsDeducted={(amt) => setCoins((c) => Math.max(0, c - amt))}
+                    onEnergyUsed={(amt) => setEnergy((e) => Math.max(0, e - amt))}
+                  />
+                )}
 
-        {activeTab === 'SHOP' && (
-          <div className="max-w-4xl mx-auto w-full">
-            <ProShop
-              coins={coins}
-              currentGear={playerGear}
-              onEquipBat={(bat) => setPlayerGear((g) => ({ ...g, bat: { ...bat, costCash: 0 } }))}
-              onEquipGloves={(gloves) => setPlayerGear((g) => ({ ...g, gloves: { ...gloves, costCash: 0 } }))}
-              onEquipHelmet={(helmet) => setPlayerGear((g) => ({ ...g, helmet: { ...helmet, costCash: 0 } }))}
-              onEquipGoggles={(goggles) => setPlayerGear((g) => ({ ...g, goggles: { ...goggles, costCash: 0 } }))}
-              onBuyItem={handleBuyItem}
-            />
-          </div>
-        )}
+                {activeModal === 'PLAYER' && (
+                  <PlayerCard
+                    stats={playerStats}
+                    coins={coins}
+                    level={level}
+                    exp={exp}
+                    maxExp={maxExp}
+                    statPoints={statPoints}
+                    onUpgradeStat={handleUpgradeStat}
+                  />
+                )}
 
-        {activeTab === 'STADIUM' && (
-          <div className="max-w-4xl mx-auto w-full">
-            <StadiumManager
-              currentStadium={stadium}
-              coins={coins}
-              onUpgradeStadium={handleUpgradeStadium}
-            />
-          </div>
-        )}
+                {activeModal === 'SHOP' && (
+                  <ProShop
+                    coins={coins}
+                    currentGear={playerGear}
+                    onEquipBat={(bat) => setPlayerGear((g) => ({ ...g, bat: { ...bat, costCash: 0 } }))}
+                    onEquipGloves={(gloves) => setPlayerGear((g) => ({ ...g, gloves: { ...gloves, costCash: 0 } }))}
+                    onEquipHelmet={(helmet) => setPlayerGear((g) => ({ ...g, helmet: { ...helmet, costCash: 0 } }))}
+                    onEquipGoggles={(goggles) => setPlayerGear((g) => ({ ...g, goggles: { ...goggles, costCash: 0 } }))}
+                    onBuyItem={handleBuyItem}
+                  />
+                )}
 
-        {activeTab === 'LEAGUE' && (
-          <div className="max-w-4xl mx-auto w-full">
-            <LeagueHub
-              currentOpponent={currentOpponent}
-              unlockedTierIndex={unlockedTierIndex}
-              onSelectOpponent={(opp) => setCurrentOpponent(opp)}
-              onStartMatch={() => startNewMatch(currentOpponent)}
-            />
+                {activeModal === 'STADIUM' && (
+                  <StadiumManager
+                    currentStadium={stadium}
+                    coins={coins}
+                    onUpgradeStadium={handleUpgradeStadium}
+                  />
+                )}
+
+                {activeModal === 'LEAGUE' && (
+                  <LeagueHub
+                    currentOpponent={currentOpponent}
+                    unlockedTierIndex={unlockedTierIndex}
+                    onSelectOpponent={(opp) => {
+                      setCurrentOpponent(opp);
+                      setActiveModal(null);
+                    }}
+                    onStartMatch={() => {
+                      startNewMatch(currentOpponent);
+                      setActiveModal(null);
+                    }}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         )}
       </main>
@@ -919,7 +940,7 @@ export function App() {
               <button
                 onClick={() => {
                   setMatchEndResult(null);
-                  setActiveTab('LEAGUE');
+                  setActiveModal('LEAGUE');
                 }}
                 className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl text-sm transition-all border border-slate-700 cursor-pointer"
               >

@@ -71,6 +71,9 @@ export const BattingField: React.FC<BattingFieldProps> = ({
   const stadiumImgRef = useRef<HTMLImageElement | null>(null);
   const pitcherSpriteRef = useRef<CanvasImageSource | null>(null);
   const batterSpriteRef = useRef<CanvasImageSource | null>(null);
+  const catcherSpriteRef = useRef<CanvasImageSource | null>(null);
+  const umpireSpriteRef = useRef<CanvasImageSource | null>(null);
+  const fielderSpriteRef = useRef<CanvasImageSource | null>(null);
   const ballSpriteRef = useRef<HTMLImageElement | null>(null);
 
   const ballRef = useRef<BallState | null>(null);
@@ -132,6 +135,24 @@ export const BattingField: React.FC<BattingFieldProps> = ({
     batterImg.onload = () => {
       batterSpriteRef.current = batterImg;
     };
+
+    const catcherImg = new Image();
+    catcherImg.src = '/assets/images/characters/bh_catcher_clean.png';
+    catcherImg.onload = () => {
+      catcherSpriteRef.current = catcherImg;
+    };
+
+    const umpireImg = new Image();
+    umpireImg.src = '/assets/images/characters/bh_umpire_clean.png';
+    umpireImg.onload = () => {
+      umpireSpriteRef.current = umpireImg;
+    };
+
+    const fielderImg = new Image();
+    fielderImg.src = '/assets/images/characters/bh_fielder_clean.png';
+    fielderImg.onload = () => {
+      fielderSpriteRef.current = fielderImg;
+    };
   }, []);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -161,7 +182,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
 
     const flightDuration = Math.max(680, Math.min(1450, config.flightMs * (90 / speedMph)));
 
-    // Strike zone center is (400, 395)
+    // Strike zone center is (400, 355)
     const isOutside = Math.random() < 0.28;
     const offsetX = isOutside
       ? (Math.random() > 0.5 ? 58 + Math.random() * 25 : -58 - Math.random() * 25)
@@ -171,7 +192,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       : (Math.random() * 56 - 28);
 
     const targetX = 400 + offsetX + config.breakX;
-    const targetY = 395 + offsetY + config.breakY;
+    const targetY = 355 + offsetY + config.breakY;
 
     ballRef.current = {
       active: true,
@@ -433,7 +454,26 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         ctx.fillRect(0, 240, 800, 280);
       }
 
-      // 2. Pitcher on Mound
+      // 2. Defense Fielders across the Diamond (Ready Stance)
+      if (fielderSpriteRef.current) {
+        ctx.save();
+        const fielderPositions = [
+          { x: 310, y: 275 }, // Shortstop (SS)
+          { x: 490, y: 275 }, // 2nd Baseman (2B)
+          { x: 230, y: 345 }, // 3rd Baseman (3B)
+          { x: 570, y: 345 }, // 1st Baseman (1B)
+          { x: 210, y: 220 }, // Left Fielder (LF)
+          { x: 400, y: 205 }, // Center Fielder (CF)
+          { x: 590, y: 220 }, // Right Fielder (RF)
+        ];
+        fielderPositions.forEach(({ x, y }) => {
+          const sway = Math.sin(now / 350 + x) * 1.5;
+          ctx.drawImage(fielderSpriteRef.current as CanvasImageSource, x - 18, y - 26 + sway, 36, 36);
+        });
+        ctx.restore();
+      }
+
+      // 3. Pitcher on Mound
       ctx.save();
       const pX = 400;
       const pY = 250;
@@ -449,14 +489,14 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       ctx.restore();
 
       // 3. Home Plate Pentagon & Batter Boxes (Exact Geometry)
-      // Home plate pentagon centered at x: 400, y: 440
+      // Home plate pentagon centered at x: 400, y: 395
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.moveTo(375, 430);
-      ctx.lineTo(425, 430);
-      ctx.lineTo(435, 448);
-      ctx.lineTo(400, 465);
-      ctx.lineTo(365, 448);
+      ctx.moveTo(375, 385);
+      ctx.lineTo(425, 385);
+      ctx.lineTo(435, 403);
+      ctx.lineTo(400, 420);
+      ctx.lineTo(365, 403);
       ctx.closePath();
       ctx.fill();
       ctx.strokeStyle = '#94a3b8';
@@ -466,14 +506,32 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       // Left and Right Batter Boxes
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
       ctx.lineWidth = 2.5;
-      ctx.strokeRect(260, 415, 80, 75); // Left box
-      ctx.strokeRect(460, 415, 80, 75); // Right box
+      ctx.strokeRect(260, 370, 80, 75); // Left box
+      ctx.strokeRect(460, 370, 80, 75); // Right box
+
+      // Catcher and Umpire Characters Behind Home Plate
+      // Umpire stands slightly behind and to the right/center behind catcher at (418, 405)
+      if (umpireSpriteRef.current) {
+        ctx.save();
+        const isStrikeCalling = feedback?.text === 'STRIKE';
+        const umpOffset = isStrikeCalling ? -5 : Math.sin(now / 500) * 0.5;
+        ctx.drawImage(umpireSpriteRef.current, 418 - 32, 405 - 45 + umpOffset, 64, 72);
+        ctx.restore();
+      }
+
+      // Catcher crouches directly behind home plate at (395, 412)
+      if (catcherSpriteRef.current) {
+        ctx.save();
+        const catcherSway = Math.sin(now / 400) * 0.8;
+        ctx.drawImage(catcherSpriteRef.current, 395 - 32, 412 - 36 + catcherSway, 64, 64);
+        ctx.restore();
+      }
 
       // 4. White Rectangular Floating Strike Zone Box (screenshots_06.png)
-      // Size: 96x96 centered at x: 400, y: 395 (x: 352 to 448, y: 347 to 443)
+      // Size: 96x96 centered at x: 400, y: 355 (x: 352 to 448, y: 307 to 403)
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 3;
-      ctx.strokeRect(352, 347, 96, 96);
+      ctx.strokeRect(352, 307, 96, 96);
 
       // Pitch Speed & Type Stamp Hovering Directly Above Strike Zone
       if (pitchDisplay) {
@@ -483,9 +541,9 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         ctx.fillStyle = '#000000';
         ctx.lineWidth = 4;
         const textStr = `${pitchDisplay.speedMph} mph / ${pitchDisplay.type === '4-Seam Fastball' ? '4-Seam FB' : pitchDisplay.type}`;
-        ctx.strokeText(textStr, 400, 338);
+        ctx.strokeText(textStr, 400, 298);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(textStr, 400, 338);
+        ctx.fillText(textStr, 400, 298);
         ctx.restore();
       }
 
