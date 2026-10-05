@@ -11,7 +11,6 @@ import type {
 } from '../types/game';
 import { PITCH_CONFIGS } from '../data/gameData';
 import { sound } from '../utils/audio';
-import { loadTransparentImage } from '../utils/imageLoader';
 import { GameScoreboard } from './GameScoreboard';
 import { GameBottomHUD } from './GameBottomHUD';
 import confetti from 'canvas-confetti';
@@ -111,7 +110,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
   // Preload graphics
   useEffect(() => {
     const bg = new Image();
-    bg.src = '/bh_stadium_perfect.png';
+    bg.src = '/bh_stadium_1200.png';
     bg.onload = () => {
       stadiumImgRef.current = bg;
     };
@@ -122,17 +121,17 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       ballSpriteRef.current = ballImg;
     };
 
-    loadTransparentImage('/pitcher.png')
-      .then((sprite) => {
-        pitcherSpriteRef.current = sprite;
-      })
-      .catch((err) => console.warn('Failed loading pitcher sprite', err));
+    const pitcherImg = new Image();
+    pitcherImg.src = '/bh_pitcher_transparent.png';
+    pitcherImg.onload = () => {
+      pitcherSpriteRef.current = pitcherImg;
+    };
 
-    loadTransparentImage('/batter.png')
-      .then((sprite) => {
-        batterSpriteRef.current = sprite;
-      })
-      .catch((err) => console.warn('Failed loading batter sprite', err));
+    const batterImg = new Image();
+    batterImg.src = '/bh_batter_intact_clean.png';
+    batterImg.onload = () => {
+      batterSpriteRef.current = batterImg;
+    };
   }, []);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -421,6 +420,8 @@ export const BattingField: React.FC<BattingFieldProps> = ({
     const render = () => {
       const now = performance.now();
       ctx.clearRect(0, 0, 800, 520);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
 
       // 1. Stadium Background
       if (stadiumImgRef.current && stadiumImgRef.current.complete) {
@@ -435,10 +436,10 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       // 2. Pitcher on Mound
       ctx.save();
       const pX = 400;
-      const pY = 250;
+      const pY = 248;
       if (pitcherSpriteRef.current) {
         const bounce = pitchPrompt === 'PITCHING' ? Math.sin(now / 80) * 3 : 0;
-        ctx.drawImage(pitcherSpriteRef.current, pX - 40, pY - 70 + bounce, 80, 80);
+        ctx.drawImage(pitcherSpriteRef.current, pX - 35, pY - 72 + bounce, 70, 78);
       } else {
         ctx.fillStyle = '#16a34a';
         ctx.beginPath();
@@ -698,21 +699,32 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         className="w-full h-auto cursor-crosshair block select-none"
       />
 
-      {/* Authentic Cartoon Result Stamp (e.g. STRIKE, BALL, HIT, HOMERUN) */}
+      {/* Authentic Cartoon Result Stamp (STRIKE, NICE, HOMERUN, BALL) */}
       {feedback && (
-        <div className="absolute top-[40%] left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center z-30 animate-bounce">
-          <div
-            className="text-6xl font-black italic tracking-tighter drop-shadow-[0_8px_16px_rgba(0,0,0,0.9)] uppercase select-none font-sans"
-            style={{
-              color: feedback.color,
-              WebkitTextStroke: '3px #000000',
-              textShadow: '0 4px 12px rgba(0,0,0,0.8)',
-            }}
-          >
-            {feedback.text}
-          </div>
+        <div className="absolute top-[38%] left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center z-30 animate-bounce">
+          {feedback.text === 'STRIKE' ? (
+            <img src="/stamp_strike.svg" alt="STRIKE" className="w-80 h-auto filter drop-shadow-2xl mx-auto" />
+          ) : feedback.text === 'NICE!' || feedback.text === 'GOOD!' || feedback.text === 'PERFECT!' ? (
+            <img src="/stamp_nice.svg" alt="NICE!" className="w-80 h-auto filter drop-shadow-2xl mx-auto" />
+          ) : feedback.text === 'HOMERUN' ? (
+            <img src="/stamp_homerun.svg" alt="HOMERUN!" className="w-96 h-auto filter drop-shadow-2xl mx-auto" />
+          ) : feedback.text === 'BALL' ? (
+            <img src="/stamp_ball.svg" alt="BALL" className="w-72 h-auto filter drop-shadow-2xl mx-auto" />
+          ) : (
+            <div
+              className="text-6xl font-black italic tracking-tighter drop-shadow-[0_8px_16px_rgba(0,0,0,0.9)] uppercase select-none font-sans"
+              style={{
+                color: feedback.color,
+                WebkitTextStroke: '3px #000000',
+                textShadow: '0 4px 12px rgba(0,0,0,0.8)',
+              }}
+            >
+              {feedback.text}
+            </div>
+          )}
+
           {feedback.sub && (
-            <div className="text-xs font-black text-white bg-black/80 px-3 py-1 rounded-full inline-block mt-1 border border-slate-600 shadow-md">
+            <div className="text-sm font-black text-amber-300 bg-black/85 px-4 py-1 rounded-full inline-block mt-2 border-2 border-amber-400 shadow-xl uppercase tracking-wider font-mono">
               {feedback.sub}
             </div>
           )}
