@@ -6,13 +6,17 @@ import type {
   OpponentTeam,
   MatchScoreboard,
   HitOutcome,
-  StadiumUpgrade
+  StadiumUpgrade,
+  SeasonStandings,
+  DailyQuest
 } from './types/game';
 import {
   INITIAL_PLAYER_STATS,
   INITIAL_GEAR,
   INITIAL_CARDS,
   INITIAL_STADIUM,
+  INITIAL_SEASON,
+  INITIAL_QUESTS,
   LEAGUE_OPPONENTS,
   SHOP_ITEMS,
   CARD_PACK_POOL
@@ -24,6 +28,7 @@ import { ProShop } from './components/ProShop';
 import { CardsManager } from './components/CardsManager';
 import { StadiumManager } from './components/StadiumManager';
 import { LeagueHub } from './components/LeagueHub';
+import { QuestsModal } from './components/QuestsModal';
 import { sound } from './utils/audio';
 
 type ActiveTab = 'MATCH' | 'CARDS' | 'PLAYER' | 'SHOP' | 'STADIUM' | 'LEAGUE';
@@ -33,13 +38,18 @@ export function App() {
 
   // Authentic Syntasia Facebook Currencies & Energy (15 max, 5 per match)
   const [energy, setEnergy] = useState<number>(15);
-  const [coins, setCoins] = useState<number>(1250);
-  const [cash, setCash] = useState<number>(20); // Premium cash
+  const [coins, setCoins] = useState<number>(1500);
+  const [cash, setCash] = useState<number>(20);
   const [level, setLevel] = useState<number>(1);
   const [exp, setExp] = useState<number>(40);
   const [maxExp, setMaxExp] = useState<number>(100);
   const [statPoints, setStatPoints] = useState<number>(3);
   const [unlockedTierIndex, setUnlockedTierIndex] = useState<number>(0);
+
+  // 30-Game Season State
+  const [season, setSeason] = useState<SeasonStandings>(INITIAL_SEASON);
+  const [quests, setQuests] = useState<DailyQuest[]>(INITIAL_QUESTS);
+  const [showQuestsModal, setShowQuestsModal] = useState<boolean>(false);
 
   // Player RPG stats & Gear
   const [playerStats, setPlayerStats] = useState<PlayerStats>(INITIAL_PLAYER_STATS);
@@ -66,6 +76,7 @@ export function App() {
     outs: 0,
     bases: [false, false, false],
     totalInnings: 3,
+    currentBatterOrder: 1,
   });
 
   const [matchHistory, setMatchHistory] = useState<string[]>([
@@ -75,6 +86,7 @@ export function App() {
     won: boolean;
     coinsWon: number;
     expWon: number;
+    seasonSummary: string;
   } | null>(null);
 
   // Energy timer refill (1 energy point every 45 seconds up to 15)
@@ -105,7 +117,7 @@ export function App() {
   };
 
   // Buy Shop Gear
-  const handleBuyItem = (category: 'bats' | 'gloves' | 'cleats', id: string, costCoins: number) => {
+  const handleBuyItem = (category: 'bats' | 'gloves' | 'helmet' | 'goggles', id: string, costCoins: number) => {
     if (coins < costCoins) return;
     setCoins((c) => c - costCoins);
     if (category === 'bats') {
@@ -114,9 +126,12 @@ export function App() {
     } else if (category === 'gloves') {
       const item = SHOP_ITEMS.gloves.find((gl) => gl.id === id);
       if (item) setPlayerGear((g) => ({ ...g, gloves: { ...item, costCash: 0, owned: true } }));
-    } else if (category === 'cleats') {
-      const item = SHOP_ITEMS.cleats.find((cl) => cl.id === id);
-      if (item) setPlayerGear((g) => ({ ...g, cleats: { ...item, costCash: 0, owned: true } }));
+    } else if (category === 'helmet') {
+      const item = SHOP_ITEMS.helmet.find((h) => h.id === id);
+      if (item) setPlayerGear((g) => ({ ...g, helmet: { ...item, costCash: 0, owned: true } }));
+    } else if (category === 'goggles') {
+      const item = SHOP_ITEMS.goggles.find((go) => go.id === id);
+      if (item) setPlayerGear((g) => ({ ...g, goggles: { ...item, costCash: 0, owned: true } }));
     }
   };
 
@@ -132,7 +147,6 @@ export function App() {
     const drawn = pool[Math.floor(Math.random() * pool.length)];
 
     setCards((prev) => {
-      // Replace lowest or append
       const updated = [...prev];
       if (updated.length >= 5) {
         updated[updated.length - 1] = drawn;
@@ -150,10 +164,20 @@ export function App() {
     setStadium(nextLevel);
   };
 
+  // Claim Daily Quest
+  const handleClaimQuest = (questId: string) => {
+    const q = quests.find((quest) => quest.id === questId);
+    if (!q || q.completed) return;
+    setCoins((c) => c + q.rewardCoins);
+    setQuests((prev) =>
+      prev.map((item) => (item.id === questId ? { ...item, completed: true } : item))
+    );
+  };
+
   // Start new match (Costs 5 Energy)
   const startNewMatch = (opp?: OpponentTeam) => {
     if (energy < 5) {
-      alert('Out of Energy! Matches require 5 Energy. Refills automatically over time or with Cash.');
+      alert('Out of Energy! Matches require 5 Energy. Refills over time or instantly with 5 Cash.');
       return;
     }
 
@@ -172,6 +196,7 @@ export function App() {
       outs: 0,
       bases: [false, false, false],
       totalInnings: 3,
+      currentBatterOrder: 1,
     });
     setMatchHistory([`Match started vs ${oppToUse.name}! Pitcher: ${oppToUse.pitcherName}`]);
     setMatchEndResult(null);
@@ -186,7 +211,12 @@ export function App() {
     setEnergy(15);
   };
 
-  // Handle Batting Inning Hit/Strike/Ball Event
+  // Handle Batter Rotation
+  const handleBatterChanged = (newOrder: number) => {
+    setScoreboard((prev) => ({ ...prev, currentBatterOrder: newOrder }));
+  };
+
+  // Handle Inning Event
   const handleInningEvent = (
     outcome: HitOutcome,
     runsScored: number,
@@ -195,9 +225,21 @@ export function App() {
   ) => {
     setMatchHistory((prev) => [hitDesc, ...prev.slice(0, 7)]);
 
+    // Quest tracking
+    if (outcome === 'Home Run') {
+      setQuests((prev) =>
+        prev.map((q) => (q.id === 'q1' ? { ...q, current: Math.min(q.goal, q.current + 1) } : q))
+      );
+    }
+    if (comboGauge + comboPointsEarned >= 100) {
+      setQuests((prev) =>
+        prev.map((q) => (q.id === 'q2' ? { ...q, current: Math.min(q.goal, q.current + 1) } : q))
+      );
+    }
+
     // Update COMBO GAUGE
     if (isAutoHomeRunReady && outcome === 'Home Run') {
-      setComboGauge(0); // Reset combo gauge after guaranteed grand slam
+      setComboGauge(0);
     } else {
       setComboGauge((g) => Math.min(100, g + comboPointsEarned));
     }
@@ -229,7 +271,6 @@ export function App() {
         strikes = 0;
         balls = 0;
       } else {
-        // Hit
         balls = 0;
         strikes = 0;
         playerScore += runsScored;
@@ -266,9 +307,8 @@ export function App() {
     });
   };
 
-  // Match Result & Rewards
+  // Match Result & 30-Game Season Progression
   const handleMatchFinished = (playerWon: boolean) => {
-    // Stadium capacity multiplier applies to rewards
     const stadiumMult = stadium.bonusCoinMultiplier;
     const baseCoins = playerWon ? currentOpponent.rewardCoins : Math.round(currentOpponent.rewardCoins * 0.3);
     const coinsWon = Math.round(baseCoins * stadiumMult);
@@ -283,17 +323,63 @@ export function App() {
         setLevel((l) => l + 1);
         setMaxExp((m) => Math.round(m * 1.3));
         setStatPoints((pts) => pts + 2);
-        setCash((cashVal) => cashVal + 2); // Free cash reward on level up!
+        setCash((cashVal) => cashVal + 2);
       }
       return newExp;
     });
+
+    // Advance 30-Game Season record
+    let seasonSummaryText = '';
+    setSeason((prevSeason) => {
+      const newWins = playerWon ? prevSeason.wins + 1 : prevSeason.wins;
+      const newLosses = !playerWon ? prevSeason.losses + 1 : prevSeason.losses;
+      let newGameNum = prevSeason.gameNumber + 1;
+      let newSeasonNum = prevSeason.seasonNumber;
+      let isPlayoffs = prevSeason.isPlayoffs;
+
+      // Calculate dynamic rank out of 8 teams
+      const winRate = newWins / Math.max(1, newWins + newLosses);
+      const calculatedRank = Math.max(1, Math.min(8, 8 - Math.round(winRate * 7)));
+
+      if (newGameNum > 30) {
+        // Season concluded! Check if qualified for playoffs (Top 4)
+        if (calculatedRank <= 4) {
+          isPlayoffs = true;
+          seasonSummaryText = `🎉 CONGRATULATIONS! You finished Season #${newSeasonNum} at Rank #${calculatedRank} and qualified for the PLAYOFFS!`;
+        } else {
+          seasonSummaryText = `Season #${newSeasonNum} concluded at Rank #${calculatedRank}. Preparing Season #${newSeasonNum + 1}!`;
+          newSeasonNum += 1;
+          newGameNum = 1;
+          isPlayoffs = false;
+        }
+      } else {
+        seasonSummaryText = `Season #${newSeasonNum} Record: ${newWins}W - ${newLosses}L (Rank #${calculatedRank})`;
+      }
+
+      return {
+        ...prevSeason,
+        seasonNumber: newSeasonNum,
+        gameNumber: newGameNum,
+        wins: newWins,
+        losses: newLosses,
+        rank: calculatedRank,
+        isPlayoffs,
+      };
+    });
+
+    // Quest update
+    if (playerWon) {
+      setQuests((prev) =>
+        prev.map((q) => (q.id === 'q3' ? { ...q, current: Math.min(q.goal, q.current + 1) } : q))
+      );
+    }
 
     const currentTierIdx = LEAGUE_OPPONENTS.findIndex((o) => o.id === currentOpponent.id);
     if (playerWon && currentTierIdx === unlockedTierIndex && unlockedTierIndex < LEAGUE_OPPONENTS.length - 1) {
       setUnlockedTierIndex((idx) => idx + 1);
     }
 
-    setMatchEndResult({ won: playerWon, coinsWon, expWon });
+    setMatchEndResult({ won: playerWon, coinsWon, expWon, seasonSummary: seasonSummaryText });
   };
 
   return (
@@ -317,7 +403,7 @@ export function App() {
             </div>
           </div>
 
-          {/* Authentic HUD Bar: Energy 15/15, Coins, Cash, Level */}
+          {/* Authentic HUD Bar */}
           <div className="flex items-center flex-wrap gap-2.5 text-xs">
             {/* Energy Meter (Cost: 5 per match) */}
             <div className="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-sm">
@@ -357,6 +443,17 @@ export function App() {
               <span className="text-sky-400">LVL</span>
               <span className="font-mono">{level}</span>
             </div>
+
+            {/* Quests button */}
+            <button
+              onClick={() => setShowQuestsModal(true)}
+              className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-amber-300 font-bold px-2.5 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              📜 Quests
+              {quests.some((q) => q.current >= q.goal && !q.completed) && (
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+              )}
+            </button>
 
             {statPoints > 0 && (
               <button
@@ -438,25 +535,25 @@ export function App() {
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 flex flex-col justify-center">
         {activeTab === 'MATCH' && (
           <div className="space-y-4">
-            {/* Scoreboard */}
             <Scoreboard
               scoreboard={scoreboard}
+              season={season}
               playerName="You & Heroes"
               opponentName={currentOpponent.name}
             />
 
-            {/* Canvas Batting Field */}
             <BattingField
               opponent={currentOpponent}
               playerStats={playerStats}
               playerGear={playerGear}
+              activeCards={cards}
               scoreboard={scoreboard}
               comboGauge={comboGauge}
               isAutoHomeRunReady={isAutoHomeRunReady}
               onInningEvent={handleInningEvent}
+              onBatterChanged={handleBatterChanged}
             />
 
-            {/* Match Information Bar */}
             <div className="max-w-4xl mx-auto w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs flex items-center justify-between">
               <div className="flex items-center gap-2 overflow-hidden">
                 <span className="font-bold text-amber-400 shrink-0">📢 Announcer:</span>
@@ -468,7 +565,7 @@ export function App() {
                 onClick={() => startNewMatch()}
                 className="text-[11px] text-slate-400 hover:text-white underline shrink-0 ml-2 cursor-pointer"
               >
-                Restart (5 Energy)
+                Restart (5⚡)
               </button>
             </div>
           </div>
@@ -507,7 +604,8 @@ export function App() {
               currentGear={playerGear}
               onEquipBat={(bat) => setPlayerGear((g) => ({ ...g, bat: { ...bat, costCash: 0 } }))}
               onEquipGloves={(gloves) => setPlayerGear((g) => ({ ...g, gloves: { ...gloves, costCash: 0 } }))}
-              onEquipCleats={(cleats) => setPlayerGear((g) => ({ ...g, cleats: { ...cleats, costCash: 0 } }))}
+              onEquipHelmet={(helmet) => setPlayerGear((g) => ({ ...g, helmet: { ...helmet, costCash: 0 } }))}
+              onEquipGoggles={(goggles) => setPlayerGear((g) => ({ ...g, goggles: { ...goggles, costCash: 0 } }))}
               onBuyItem={handleBuyItem}
             />
           </div>
@@ -549,6 +647,10 @@ export function App() {
                 : `A tough duel against ${currentOpponent.name}. Upgrade your batter cards and strike back!`}
             </p>
 
+            <div className="text-xs bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-amber-300 font-bold">
+              {matchEndResult.seasonSummary}
+            </div>
+
             <div className="bg-slate-800 rounded-xl p-3 flex justify-around text-sm font-bold border border-slate-700">
               <div>
                 <div className="text-xs text-slate-400">Coins Earned</div>
@@ -566,20 +668,29 @@ export function App() {
                 onClick={() => startNewMatch()}
                 className="flex-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black py-2.5 rounded-xl text-sm transition-all shadow-md cursor-pointer"
               >
-                Play Again (5⚡)
+                Next Game (5⚡)
               </button>
               <button
                 onClick={() => {
                   setMatchEndResult(null);
-                  setActiveTab('CARDS');
+                  setActiveTab('LEAGUE');
                 }}
                 className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-2.5 rounded-xl text-sm transition-all border border-slate-700 cursor-pointer"
               >
-                Card Draft
+                League Standings
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* Daily Quests Modal */}
+      {showQuestsModal && (
+        <QuestsModal
+          quests={quests}
+          onClaimQuest={handleClaimQuest}
+          onClose={() => setShowQuestsModal(false)}
+        />
       )}
     </div>
   );

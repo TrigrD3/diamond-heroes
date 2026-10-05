@@ -150,12 +150,12 @@ export const CardsManager: React.FC<CardsManagerProps> = ({
                   </div>
 
                   {/* Attributes */}
-                  <div className="grid grid-cols-2 gap-1.5 bg-slate-900/80 rounded-lg p-2 text-[11px] border border-slate-700/80 my-2">
-                    <div>🎯 Con: <strong className="text-emerald-400">{c.contact}</strong></div>
-                    <div>💥 Pow: <strong className="text-amber-400">{c.power}</strong></div>
-                    <div>🍀 Lck: <strong className="text-purple-400">{c.luck}</strong></div>
-                    <div>⚡ Spd: <strong className="text-sky-400">{c.speed}</strong></div>
+                  <div className="grid grid-cols-3 gap-1 bg-slate-900/80 rounded-lg p-2 text-[11px] border border-slate-700/80 my-2 text-center">
+                    <div>🎯 <strong className="text-emerald-400 block">{c.contact}</strong></div>
+                    <div>💥 <strong className="text-amber-400 block">{c.power}</strong></div>
+                    <div>🍀 <strong className="text-purple-400 block">{c.luck}</strong></div>
                   </div>
+
 
                   {/* Special Ability */}
                   <div className="text-[10px] text-amber-200/90 bg-amber-950/30 border border-amber-800/40 rounded p-1.5 leading-tight">
@@ -184,12 +184,12 @@ export const CardsManager: React.FC<CardsManagerProps> = ({
               <div className="text-lg font-black text-white mt-2">{packOpeningResult.name}</div>
               <div className="text-xs text-slate-400 mt-0.5">Position: {packOpeningResult.position}</div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs bg-slate-900 p-2 rounded-lg mt-3 border border-slate-700">
-                <div>🎯 Contact: <strong className="text-emerald-400">{packOpeningResult.contact}</strong></div>
-                <div>💥 Power: <strong className="text-amber-400">{packOpeningResult.power}</strong></div>
-                <div>🍀 Luck: <strong className="text-purple-400">{packOpeningResult.luck}</strong></div>
-                <div>⚡ Speed: <strong className="text-sky-400">{packOpeningResult.speed}</strong></div>
+              <div className="grid grid-cols-3 gap-2 text-xs bg-slate-900 p-2.5 rounded-lg mt-3 border border-slate-700 text-center">
+                <div>🎯 Contact: <strong className="text-emerald-400 block">{packOpeningResult.contact}</strong></div>
+                <div>💥 Power: <strong className="text-amber-400 block">{packOpeningResult.power}</strong></div>
+                <div>🍀 Luck: <strong className="text-purple-400 block">{packOpeningResult.luck}</strong></div>
               </div>
+
 
               <div className="text-xs text-amber-300 mt-2 p-1.5 bg-amber-950/40 rounded border border-amber-800/40">
                 {packOpeningResult.specialAbility}

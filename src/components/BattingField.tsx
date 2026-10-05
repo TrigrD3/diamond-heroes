@@ -5,7 +5,8 @@ import type {
   MatchScoreboard,
   OpponentTeam,
   PlayerStats,
-  PlayerGear
+  PlayerGear,
+  BatterCard
 } from '../types/game';
 import { PITCH_CONFIGS } from '../data/gameData';
 import { sound } from '../utils/audio';
@@ -16,10 +17,12 @@ interface BattingFieldProps {
   opponent: OpponentTeam;
   playerStats: PlayerStats;
   playerGear: PlayerGear;
+  activeCards: BatterCard[];
   scoreboard: MatchScoreboard;
-  comboGauge: number; // 0 to 100
+  comboGauge: number;
   isAutoHomeRunReady: boolean;
   onInningEvent: (outcome: HitOutcome, runsScored: number, hitDesc: string, comboPointsEarned: number) => void;
+  onBatterChanged: (newOrder: number) => void;
 }
 
 interface BallState {
@@ -40,27 +43,25 @@ export const BattingField: React.FC<BattingFieldProps> = ({
   opponent,
   playerStats,
   playerGear,
+  activeCards,
   scoreboard,
   comboGauge,
   isAutoHomeRunReady,
   onInningEvent,
+  onBatterChanged,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  // Batting game states: READY, PITCHING, HIT, RESULT
   const [pitchPrompt, setPitchPrompt] = useState<'READY' | 'PITCHING' | 'HIT' | 'RESULT'>('READY');
   const [feedback, setFeedback] = useState<{ text: string; color: string; sub?: string } | null>(null);
   const [pitchDisplay, setPitchDisplay] = useState<{ type: PitchType; speedMph: number } | null>(null);
 
-  // Mouse cursor coords relative to canvas
   const mousePosRef = useRef<{ x: number; y: number }>({ x: 400, y: 440 });
 
-  // Loaded Sprite References
   const stadiumImgRef = useRef<HTMLImageElement | null>(null);
   const pitcherSpriteRef = useRef<CanvasImageSource | null>(null);
   const batterSpriteRef = useRef<CanvasImageSource | null>(null);
 
-  // Ball & Flight physics
   const ballRef = useRef<BallState | null>(null);
   const swingProgressRef = useRef<number>(-1);
   const hitFlightRef = useRef<{
@@ -74,15 +75,30 @@ export const BattingField: React.FC<BattingFieldProps> = ({
     distFt: number;
   } | null>(null);
 
-  // Combined stats
-  const totalContact = playerStats.contact + playerGear.bat.contactBonus + playerGear.gloves.contactBonus;
-  const totalPower = playerStats.power + playerGear.bat.powerBonus;
-  const totalLuck = playerStats.luck + playerGear.gloves.luckBonus + playerGear.cleats.luckBonus;
+  // Determine current active batter in lineup order
+  // If order === 3 (The Avatar Slugger), use player stats + gear
+  // Otherwise use special batter cards
+  const currentCard = activeCards[(scoreboard.currentBatterOrder - 1) % activeCards.length] || activeCards[0];
+  const isAvatarBatter = scoreboard.currentBatterOrder === 3;
 
-  // Aiming circle radius determined by Contact attribute
-  const aimCircleRadius = Math.max(22, 16 + totalContact * 0.32);
+  const currentContact = isAvatarBatter
+    ? playerStats.contact + playerGear.bat.contactBonus + playerGear.gloves.contactBonus + playerGear.helmet.contactBonus + playerGear.goggles.contactBonus
+    : currentCard.contact;
 
-  // Preload Game Artwork (Stadium background + Chibi Pitcher & Batter sprites)
+  const currentPower = isAvatarBatter
+    ? playerStats.power + playerGear.bat.powerBonus + playerGear.helmet.powerBonus
+    : currentCard.power;
+
+  const currentLuck = isAvatarBatter
+    ? playerStats.luck + playerGear.gloves.luckBonus + playerGear.goggles.luckBonus
+    : currentCard.luck;
+
+  const currentBatterName = isAvatarBatter ? 'Your Avatar Slugger' : currentCard.name;
+
+  // Contact radius
+  const aimCircleRadius = Math.max(22, 16 + currentContact * 0.32);
+
+  // Preload graphics
   useEffect(() => {
     const bg = new Image();
     bg.src = '/stadium.jpg';
@@ -103,7 +119,6 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       .catch((err) => console.warn('Failed loading batter sprite', err));
   }, []);
 
-  // Track mouse coordinates inside canvas
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -116,7 +131,6 @@ export const BattingField: React.FC<BattingFieldProps> = ({
     };
   };
 
-  // Pitch delivery from pitcher mound
   const throwPitch = useCallback(() => {
     if (pitchPrompt === 'PITCHING') return;
 
@@ -148,7 +162,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       startTime: performance.now(),
       duration: flightDuration,
       x: 400,
-      y: 260, // Release from pitcher's hand
+      y: 260,
       scale: 0.22,
       pitchType: chosenPitchType,
       isBall: isOutside,
@@ -163,7 +177,11 @@ export const BattingField: React.FC<BattingFieldProps> = ({
     sound.playPitch();
   }, [opponent, pitchPrompt]);
 
-  // Handle Bat Swing with Aim Cursor & Timing Sweet Spot
+  const advanceBatterOrder = useCallback(() => {
+    const nextOrder = scoreboard.currentBatterOrder >= 9 ? 1 : scoreboard.currentBatterOrder + 1;
+    onBatterChanged(nextOrder);
+  }, [scoreboard.currentBatterOrder, onBatterChanged]);
+
   const handleSwing = useCallback(() => {
     if (pitchPrompt !== 'PITCHING') {
       sound.playSwingWhoosh();
@@ -183,19 +201,17 @@ export const BattingField: React.FC<BattingFieldProps> = ({
     const elapsed = now - ball.startTime;
     const diff = elapsed - ball.duration;
 
-    // Aim Cursor distance check
     const mouseX = mousePosRef.current.x;
     const mouseY = mousePosRef.current.y;
     const distToAimCircle = Math.hypot(mouseX - ball.targetX, mouseY - ball.targetY);
     const aimAccuracy = Math.max(0, 1 - (distToAimCircle / (aimCircleRadius * 1.5)));
 
-    // Timing tolerance scaled by Contact
-    const contactFactor = totalContact / 50;
+    const contactFactor = currentContact / 50;
     const perfectWindow = 40 * contactFactor;
     const goodWindow = 100 * contactFactor;
     const hitTolerance = 170 * contactFactor;
 
-    // COMBO Fever Auto Home Run!
+    // Automatic Home Run if Combo Gauge is 100%!
     if (isAutoHomeRunReady && Math.abs(diff) <= hitTolerance) {
       ball.hit = true;
       ball.active = false;
@@ -203,7 +219,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       sound.playCheer();
       confetti({ particleCount: 100, spread: 80, origin: { y: 0.6 } });
 
-      const dist = 430 + Math.random() * 50 + totalPower;
+      const dist = 430 + Math.random() * 50 + currentPower;
       hitFlightRef.current = {
         active: true,
         x: 400,
@@ -224,13 +240,13 @@ export const BattingField: React.FC<BattingFieldProps> = ({
 
       const runs = 1 + scoreboard.bases.filter(Boolean).length;
       setTimeout(() => {
-        onInningEvent('Home Run', runs, `COMBO FEVER! Mammoth Home Run ${Math.round(dist)} ft!`, 0);
+        onInningEvent('Home Run', runs, `${currentBatterName} CRUSHED a COMBO HOME RUN ${Math.round(dist)} ft!`, 0);
         setPitchPrompt('RESULT');
+        advanceBatterOrder();
       }, 1900);
       return;
     }
 
-    // Normal swing checks
     if (distToAimCircle > aimCircleRadius * 1.5 || Math.abs(diff) > hitTolerance) {
       sound.playSwingWhoosh();
       sound.playStrike();
@@ -242,11 +258,10 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         sub: diff < 0 ? 'Too Early' : 'Too Late',
       });
       setPitchPrompt('RESULT');
-      onInningEvent('Strike', 0, 'Whiffed outside contact zone!', 5);
+      onInningEvent('Strike', 0, `${currentBatterName} whiffed at the pitch!`, 5);
       return;
     }
 
-    // Connected Hit!
     ball.hit = true;
     ball.active = false;
 
@@ -258,15 +273,15 @@ export const BattingField: React.FC<BattingFieldProps> = ({
 
     let outcome: HitOutcome = 'Single';
     let hitQuality: 'Normal' | 'Solid' | 'Homerun' = 'Normal';
-    let baseDistance = 210 + totalPower * 2.1;
-    let comboGained = Math.round(15 + totalLuck * 0.4);
+    let baseDistance = 210 + currentPower * 2.1;
+    let comboGained = Math.round(15 + currentLuck * 0.45);
 
     if (timingLabel === 'PERFECT' && aimAccuracy > 0.6) {
-      const hrChance = Math.min(0.85, 0.4 + totalPower / 110 + (totalLuck > 50 ? 0.2 : 0));
+      const hrChance = Math.min(0.85, 0.4 + currentPower / 110 + (currentLuck > 50 ? 0.2 : 0));
       if (Math.random() < hrChance) {
         outcome = 'Home Run';
         hitQuality = 'Homerun';
-        baseDistance = 390 + Math.random() * 60 + totalPower * 0.8;
+        baseDistance = 390 + Math.random() * 60 + currentPower * 0.8;
         comboGained = 45;
       } else if (Math.random() < 0.3) {
         outcome = 'Triple';
@@ -281,7 +296,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       }
     } else if (timingLabel === 'GOOD') {
       const roll = Math.random();
-      if (roll < 0.25 + totalPower / 220) {
+      if (roll < 0.25 + currentPower / 220) {
         outcome = 'Double';
         hitQuality = 'Solid';
         baseDistance = 295 + Math.random() * 30;
@@ -347,30 +362,31 @@ export const BattingField: React.FC<BattingFieldProps> = ({
     else if (outcome === 'Single') runs = scoreboard.bases[2] ? 1 : 0;
 
     setTimeout(() => {
-      onInningEvent(outcome, runs, `${timingLabel} contact! ${outcome} hit ${Math.round(baseDistance)} ft`, comboGained);
+      onInningEvent(outcome, runs, `${currentBatterName} hit a ${outcome}! (${Math.round(baseDistance)} ft)`, comboGained);
       setPitchPrompt('RESULT');
+      if (outcome !== 'Foul') {
+        advanceBatterOrder();
+      }
     }, 1800);
   }, [
     pitchPrompt,
     isAutoHomeRunReady,
-    totalContact,
-    totalPower,
-    totalLuck,
+    currentContact,
+    currentPower,
+    currentLuck,
+    currentBatterName,
     aimCircleRadius,
     scoreboard.bases,
     onInningEvent,
+    advanceBatterOrder,
   ]);
 
-  // Keyboard shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.code === 'Enter') {
         e.preventDefault();
-        if (pitchPrompt === 'READY' || pitchPrompt === 'RESULT') {
-          throwPitch();
-        } else {
-          handleSwing();
-        }
+        if (pitchPrompt === 'READY' || pitchPrompt === 'RESULT') throwPitch();
+        else handleSwing();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -389,21 +405,17 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       const now = performance.now();
       ctx.clearRect(0, 0, 800, 520);
 
-      // 1. Draw High-Resolution Authentic Stadium Art
+      // Stadium Art
       if (stadiumImgRef.current && stadiumImgRef.current.complete) {
         ctx.drawImage(stadiumImgRef.current, 0, 0, 800, 520);
       } else {
-        // Fallback gradient stadium
-        const skyGrad = ctx.createLinearGradient(0, 0, 0, 240);
-        skyGrad.addColorStop(0, '#1d4ed8');
-        skyGrad.addColorStop(1, '#bfdbfe');
-        ctx.fillStyle = skyGrad;
+        ctx.fillStyle = '#1e3a8a';
         ctx.fillRect(0, 0, 800, 240);
-        ctx.fillStyle = '#16a34a';
+        ctx.fillStyle = '#15803d';
         ctx.fillRect(0, 240, 800, 280);
       }
 
-      // Infield Dirt & Home Plate Markings
+      // Home Plate & Markings
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.moveTo(390, 452);
@@ -438,16 +450,14 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // 2. Chibi Opponent Pitcher Sprite on Mound
+      // Pitcher Sprite
       ctx.save();
       const pX = 400;
       const pY = 275;
       if (pitcherSpriteRef.current) {
-        // Draw real chibi pitcher sprite with slight windup bounce
         const bounce = pitchPrompt === 'PITCHING' ? Math.sin(now / 80) * 3 : 0;
         ctx.drawImage(pitcherSpriteRef.current, pX - 45, pY - 80 + bounce, 90, 90);
       } else {
-        // Fallback chibi pitcher
         ctx.fillStyle = '#dc2626';
         ctx.beginPath();
         ctx.arc(pX, pY - 5, 14, 0, Math.PI * 2);
@@ -455,7 +465,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       }
       ctx.restore();
 
-      // 3. Active Ball & Aiming Circle
+      // Ball & Aiming Circle
       const ball = ballRef.current;
       if (ball && ball.active) {
         const elapsed = now - ball.startTime;
@@ -470,7 +480,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         ball.y = currentY;
         ball.scale = currentScale;
 
-        // AIMING CIRCLE TARGET
+        // AIMING CIRCLE
         ctx.save();
         ctx.strokeStyle = progress > 0.7 ? '#ef4444' : '#38bdf8';
         ctx.lineWidth = 2.5;
@@ -493,13 +503,12 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         ctx.stroke();
         ctx.restore();
 
-        // Ball Shadow
+        // Shadow & Seams
         ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
         ctx.beginPath();
         ctx.ellipse(currentX, 465, 7 * currentScale, 3.5 * currentScale, 0, 0, Math.PI * 2);
         ctx.fill();
 
-        // Pitch Trail
         ctx.strokeStyle = PITCH_CONFIGS[ball.pitchType].color;
         ctx.lineWidth = 3.5 * currentScale;
         ctx.beginPath();
@@ -507,7 +516,6 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         ctx.lineTo(currentX, currentY);
         ctx.stroke();
 
-        // Baseball with Seams
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(currentX, currentY, 11 * currentScale, 0, Math.PI * 2);
@@ -534,10 +542,13 @@ export const BattingField: React.FC<BattingFieldProps> = ({
           });
           setPitchPrompt('RESULT');
           onInningEvent(outcome, 0, isBall ? 'Pitch taken outside.' : 'Caught looking in zone.', isBall ? 5 : 0);
+          if (outcome === 'Strike' && scoreboard.strikes >= 2) {
+            advanceBatterOrder();
+          }
         }
       }
 
-      // 4. Flying Hit Ball Flight Animation
+      // Hit Flight
       const flight = hitFlightRef.current;
       if (flight && flight.active) {
         flight.x += flight.vx;
@@ -563,12 +574,11 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         }
       }
 
-      // 5. Chibi Batter Hero Character
+      // Batter Sprite
       ctx.save();
       const bX = 330;
       const bY = 470;
 
-      // Batter Swing animation rotation
       let batAngle = 0;
       if (swingProgressRef.current >= 0) {
         swingProgressRef.current += 0.085;
@@ -583,10 +593,8 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       if (batterSpriteRef.current) {
         ctx.translate(bX, bY);
         ctx.rotate(batAngle);
-        // Draw real chibi batter sprite
         ctx.drawImage(batterSpriteRef.current, -70, -140, 140, 140);
       } else {
-        // Fallback batter
         ctx.fillStyle = '#1d4ed8';
         ctx.beginPath();
         ctx.arc(bX, bY - 14, 18, 0, Math.PI * 2);
@@ -594,7 +602,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       }
       ctx.restore();
 
-      // 6. Player Mouse Aim Reticle Cursor
+      // Mouse Aim Reticle
       const mouse = mousePosRef.current;
       ctx.save();
       ctx.strokeStyle = '#facc15';
@@ -614,11 +622,10 @@ export const BattingField: React.FC<BattingFieldProps> = ({
 
     animId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animId);
-  }, [aimCircleRadius, pitchPrompt]);
+  }, [aimCircleRadius, pitchPrompt, scoreboard.strikes, advanceBatterOrder]);
 
   return (
     <div className="relative w-full max-w-4xl mx-auto rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-900 shadow-2xl">
-      {/* 60 FPS HTML5 Canvas */}
       <canvas
         ref={canvasRef}
         width={800}
@@ -631,9 +638,8 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         className="w-full h-auto cursor-crosshair block select-none"
       />
 
-      {/* Top Banner: Pitcher & COMBO Fever Meter */}
+      {/* Top Banner: Pitcher & Batter HUD */}
       <div className="absolute top-3 left-3 right-3 flex justify-between items-start pointer-events-none">
-        {/* Pitcher Card */}
         <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 px-4 py-2 rounded-xl text-left shadow-lg">
           <div className="text-[10px] uppercase font-black tracking-wider text-amber-400">Duel Pitcher</div>
           <div className="text-sm font-extrabold text-white flex items-center gap-1.5">
@@ -649,8 +655,8 @@ export const BattingField: React.FC<BattingFieldProps> = ({
           )}
         </div>
 
-        {/* Authentic COMBO Fever Gauge */}
-        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 px-4 py-2 rounded-xl text-right shadow-lg min-w-[200px]">
+        {/* Current Batter & Combo Meter */}
+        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700 px-4 py-2 rounded-xl text-right shadow-lg min-w-[220px]">
           <div className="flex items-center justify-between text-xs font-black uppercase tracking-wider">
             <span className="text-amber-400">⚡ COMBO FEVER</span>
             <span className={isAutoHomeRunReady ? 'text-yellow-300 animate-pulse font-black' : 'text-slate-300'}>
@@ -667,19 +673,13 @@ export const BattingField: React.FC<BattingFieldProps> = ({
               style={{ width: `${comboGauge}%` }}
             />
           </div>
-          <div className="text-[10px] text-slate-300 mt-1 font-semibold">
-            {isAutoHomeRunReady ? (
-              <span className="text-yellow-400 font-black animate-pulse">
-                ★ 100% READY: NEXT HIT = GUARANTEED HOME RUN! ★
-              </span>
-            ) : (
-              'Hits fill gauge. 100% unlocks Guaranteed Home Run!'
-            )}
+          <div className="text-[11px] font-bold text-slate-200 mt-1">
+            Batter #{scoreboard.currentBatterOrder}: <strong className="text-amber-400">{currentBatterName}</strong>
           </div>
         </div>
       </div>
 
-      {/* Center Feedback Banner */}
+      {/* Feedback Banner */}
       {feedback && (
         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center animate-bounce">
           <div
@@ -699,7 +699,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       {/* Bottom Floating Bar */}
       <div className="absolute bottom-4 left-4 right-4 flex justify-between items-center pointer-events-auto">
         <div className="text-xs text-slate-300 bg-slate-900/90 border border-slate-700 px-3 py-1.5 rounded-lg">
-          <span className="font-bold text-amber-400">Aim:</span> Move mouse to the <strong className="text-sky-400">Aiming Circle</strong> & click / press <kbd className="bg-slate-700 px-1 py-0.5 rounded text-white font-mono">SPACE</kbd>
+          <span className="font-bold text-amber-400">Aim:</span> Track <strong className="text-sky-400">Aiming Circle</strong> with cursor & swing on time (<kbd className="bg-slate-700 px-1 py-0.5 rounded text-white font-mono">SPACE</kbd>)
         </div>
 
         <div>

@@ -1,19 +1,40 @@
 import React from 'react';
-import type { MatchScoreboard } from '../types/game';
+import type { MatchScoreboard, SeasonStandings } from '../types/game';
 
 interface ScoreboardProps {
   scoreboard: MatchScoreboard;
+  season: SeasonStandings;
   playerName: string;
   opponentName: string;
 }
 
 export const Scoreboard: React.FC<ScoreboardProps> = ({
   scoreboard,
+  season,
   playerName,
   opponentName,
 }) => {
   return (
     <div className="w-full max-w-4xl mx-auto bg-slate-900 border-2 border-slate-700/80 rounded-2xl p-4 shadow-xl mb-4 text-white">
+      {/* 30-Game Season Header Status */}
+      <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800 text-xs">
+        <div className="flex items-center gap-2">
+          <span className="font-extrabold text-amber-400 uppercase tracking-wider">
+            Season #{season.seasonNumber} • Game {season.gameNumber} of {season.totalGames}
+          </span>
+          {season.isPlayoffs && (
+            <span className="bg-red-600 text-white font-black px-2 py-0.5 rounded uppercase">
+              Playoffs
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-4 text-slate-300 font-semibold">
+          <span>Record: <strong className="text-white">{season.wins}W - {season.losses}L</strong></span>
+          <span>League Rank: <strong className="text-amber-400">#{season.rank}</strong></span>
+          <span className="text-slate-400 text-[11px]">(Top 4 Reach Playoffs)</span>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
         {/* Team Matchup & Runs */}
         <div className="flex items-center justify-between md:justify-start gap-4 border-b md:border-b-0 md:border-r border-slate-700 pb-3 md:pb-0 md:pr-4">
@@ -79,39 +100,39 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({
               </div>
             </div>
           </div>
+
+          <div className="text-[11px] text-slate-400 mt-2">
+            Batting Order: <strong className="text-white">#{scoreboard.currentBatterOrder} in Lineup</strong>
+          </div>
         </div>
 
         {/* Diamond Base Runners Display */}
         <div className="flex items-center justify-around">
           <div className="text-xs text-slate-400 font-medium">Bases:</div>
           <div className="relative w-14 h-14">
-            {/* 2nd Base (Top) */}
             <div
               className={`absolute top-0 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45 border-2 transition-colors duration-200 ${
                 scoreboard.bases[1] ? 'bg-amber-400 border-amber-300 shadow-[0_0_8px_rgba(251,191,36,1)]' : 'bg-slate-800 border-slate-600'
               }`}
               title="2nd Base"
             />
-            {/* 3rd Base (Left) */}
             <div
               className={`absolute top-1/2 left-0 -translate-y-1/2 w-4 h-4 rotate-45 border-2 transition-colors duration-200 ${
                 scoreboard.bases[2] ? 'bg-amber-400 border-amber-300 shadow-[0_0_8px_rgba(251,191,36,1)]' : 'bg-slate-800 border-slate-600'
               }`}
               title="3rd Base"
             />
-            {/* 1st Base (Right) */}
             <div
               className={`absolute top-1/2 right-0 -translate-y-1/2 w-4 h-4 rotate-45 border-2 transition-colors duration-200 ${
                 scoreboard.bases[0] ? 'bg-amber-400 border-amber-300 shadow-[0_0_8px_rgba(251,191,36,1)]' : 'bg-slate-800 border-slate-600'
               }`}
               title="1st Base"
             />
-            {/* Home Plate (Bottom indicator) */}
             <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-3 h-2 bg-slate-600 rounded-b" />
           </div>
 
           <div className="text-xs text-slate-400 text-right">
-            <div>Runs Loaded: <strong className="text-white">{scoreboard.bases.filter(Boolean).length}</strong></div>
+            <div>Runners On: <strong className="text-white">{scoreboard.bases.filter(Boolean).length}</strong></div>
           </div>
         </div>
       </div>

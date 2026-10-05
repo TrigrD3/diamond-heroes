@@ -2,7 +2,6 @@ export interface PlayerStats {
   contact: number; // Widens sweet spot aiming circle & timing forgiveness
   power: number;   // Boosts fly-ball distance & Home Run chance
   luck: number;    // Multiplies combo gauge points & lucky smash hits
-  speed: number;   // Extra bases stealing & running
 }
 
 export type CardGrade = 'Hero' | 'Elite' | 'Rare' | 'Normal';
@@ -17,7 +16,6 @@ export interface BatterCard {
   contact: number;
   power: number;
   luck: number;
-  speed: number;
   specialAbility: string;
   cardArtColor: string;
 }
@@ -36,7 +34,8 @@ export interface PlayerGear {
 
   bat: { id: string; name: string; powerBonus: number; contactBonus: number; costCoins: number; costCash: number; owned: boolean; icon: string };
   gloves: { id: string; name: string; contactBonus: number; luckBonus: number; costCoins: number; costCash: number; owned: boolean; icon: string };
-  cleats: { id: string; name: string; speedBonus: number; luckBonus: number; costCoins: number; costCash: number; owned: boolean; icon: string };
+  helmet: { id: string; name: string; contactBonus: number; powerBonus: number; costCoins: number; costCash: number; owned: boolean; icon: string };
+  goggles: { id: string; name: string; contactBonus: number; luckBonus: number; costCoins: number; costCash: number; owned: boolean; icon: string };
 }
 
 export interface StadiumUpgrade {
@@ -63,7 +62,7 @@ export type HitOutcome = 'Home Run' | 'Triple' | 'Double' | 'Single' | 'Out' | '
 
 export interface MatchScoreboard {
   inning: number;
-  isTop: boolean; // false = bottom inning (player batting)
+  isTop: boolean;
   playerScore: number;
   opponentScore: number;
   balls: number;
@@ -71,6 +70,26 @@ export interface MatchScoreboard {
   outs: number;
   bases: [boolean, boolean, boolean];
   totalInnings: number;
+  currentBatterOrder: number; // 1 to 9
+}
+
+export interface SeasonStandings {
+  seasonNumber: number;
+  gameNumber: number; // 1 to 30
+  totalGames: number; // 30
+  wins: number;
+  losses: number;
+  rank: number; // 1 to 8
+  isPlayoffs: boolean;
+}
+
+export interface DailyQuest {
+  id: string;
+  title: string;
+  goal: number;
+  current: number;
+  rewardCoins: number;
+  completed: boolean;
 }
 
 export interface OpponentTeam {

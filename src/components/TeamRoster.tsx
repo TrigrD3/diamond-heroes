@@ -66,8 +66,8 @@ export const TeamRoster: React.FC<TeamRosterProps> = ({
                     <span>Contact: <strong className="text-emerald-400">{stats.contact}</strong></span>
                     <span>Power: <strong className="text-amber-400">{stats.power}</strong></span>
                     <span>Luck: <strong className="text-purple-400">{stats.luck}</strong></span>
-                    <span>Speed: <strong className="text-sky-400">{stats.speed}</strong></span>
                   </div>
+
                 </div>
               </div>
 

@@ -8,8 +8,9 @@ interface ProShopProps {
   currentGear: PlayerGear;
   onEquipBat: (bat: PlayerGear['bat']) => void;
   onEquipGloves: (gloves: PlayerGear['gloves']) => void;
-  onEquipCleats: (cleats: PlayerGear['cleats']) => void;
-  onBuyItem: (category: 'bats' | 'gloves' | 'cleats', id: string, cost: number) => void;
+  onEquipHelmet: (helmet: PlayerGear['helmet']) => void;
+  onEquipGoggles: (goggles: PlayerGear['goggles']) => void;
+  onBuyItem: (category: 'bats' | 'gloves' | 'helmet' | 'goggles', id: string, costCoins: number) => void;
 }
 
 export const ProShop: React.FC<ProShopProps> = ({
@@ -17,10 +18,11 @@ export const ProShop: React.FC<ProShopProps> = ({
   currentGear,
   onEquipBat,
   onEquipGloves,
-  onEquipCleats,
+  onEquipHelmet,
+  onEquipGoggles,
   onBuyItem,
 }) => {
-  const [activeTab, setActiveTab] = useState<'bats' | 'gloves' | 'cleats'>('bats');
+  const [activeTab, setActiveTab] = useState<'bats' | 'gloves' | 'helmet' | 'goggles'>('bats');
 
   return (
     <div className="bg-slate-900 border-2 border-slate-700/80 rounded-2xl p-6 shadow-xl text-white">
@@ -30,19 +32,21 @@ export const ProShop: React.FC<ProShopProps> = ({
           <h2 className="text-xl font-black text-white flex items-center gap-2">
             <span>🏪 Clubhouse Pro Shop</span>
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">Upgrade your bats, gloves, and cleats for attribute bonuses</p>
+          <p className="text-xs text-slate-400 mt-0.5">
+            Equip authentic Bats, Gloves, Batting Helmets, and Sports Goggles for attribute buffs
+          </p>
         </div>
         <div className="text-right">
-          <span className="text-xs uppercase font-bold text-slate-400 block">Funds</span>
+          <span className="text-xs uppercase font-bold text-slate-400 block">Vault</span>
           <span className="text-xl font-black text-amber-400">🪙 {coins}</span>
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="flex gap-2 mt-4 border-b border-slate-700 pb-2">
+      {/* Category Tabs: Bats, Gloves, Helmets, Goggles */}
+      <div className="flex gap-2 mt-4 border-b border-slate-700 pb-2 overflow-x-auto">
         <button
           onClick={() => setActiveTab('bats')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer ${
             activeTab === 'bats' ? 'bg-amber-500 text-slate-950 shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
           }`}
         >
@@ -50,19 +54,27 @@ export const ProShop: React.FC<ProShopProps> = ({
         </button>
         <button
           onClick={() => setActiveTab('gloves')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer ${
             activeTab === 'gloves' ? 'bg-amber-500 text-slate-950 shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
           }`}
         >
-          🧤 Batting Gloves
+          🧤 Gloves
         </button>
         <button
-          onClick={() => setActiveTab('cleats')}
-          className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${
-            activeTab === 'cleats' ? 'bg-amber-500 text-slate-950 shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+          onClick={() => setActiveTab('helmet')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer ${
+            activeTab === 'helmet' ? 'bg-amber-500 text-slate-950 shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
           }`}
         >
-          👟 Cleats
+          ⛑️ Helmets
+        </button>
+        <button
+          onClick={() => setActiveTab('goggles')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all cursor-pointer ${
+            activeTab === 'goggles' ? 'bg-amber-500 text-slate-950 shadow-md' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+          }`}
+        >
+          🥽 Goggles
         </button>
       </div>
 
@@ -74,7 +86,9 @@ export const ProShop: React.FC<ProShopProps> = ({
               ? currentGear.bat.id === item.id
               : activeTab === 'gloves'
               ? currentGear.gloves.id === item.id
-              : currentGear.cleats.id === item.id;
+              : activeTab === 'helmet'
+              ? currentGear.helmet.id === item.id
+              : currentGear.goggles.id === item.id;
 
           const isOwned = item.costCoins === 0 || item.owned;
           const canAfford = coins >= item.costCoins;
@@ -123,11 +137,6 @@ export const ProShop: React.FC<ProShopProps> = ({
                       +{item.luckBonus} Luck
                     </span>
                   )}
-                  {'speedBonus' in item && (
-                    <span className="text-xs bg-sky-950/60 text-sky-300 border border-sky-800/60 px-2 py-0.5 rounded font-semibold">
-                      +{item.speedBonus} Speed
-                    </span>
-                  )}
                 </div>
               </div>
 
@@ -141,9 +150,10 @@ export const ProShop: React.FC<ProShopProps> = ({
                       sound.playCoin();
                       if (activeTab === 'bats') onEquipBat(item as any);
                       if (activeTab === 'gloves') onEquipGloves(item as any);
-                      if (activeTab === 'cleats') onEquipCleats(item as any);
+                      if (activeTab === 'helmet') onEquipHelmet(item as any);
+                      if (activeTab === 'goggles') onEquipGoggles(item as any);
                     }}
-                    className="text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-1.5 rounded-lg active:scale-95 transition-transform"
+                    className="text-xs bg-sky-600 hover:bg-sky-500 text-white font-bold px-3 py-1.5 rounded-lg active:scale-95 transition-transform cursor-pointer"
                   >
                     Equip
                   </button>
@@ -158,7 +168,7 @@ export const ProShop: React.FC<ProShopProps> = ({
                     }}
                     className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-transform ${
                       canAfford
-                        ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 active:scale-95'
+                        ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 active:scale-95 cursor-pointer'
                         : 'bg-slate-700 text-slate-400 cursor-not-allowed'
                     }`}
                   >
@@ -168,7 +178,6 @@ export const ProShop: React.FC<ProShopProps> = ({
               </div>
             </div>
           );
-
         })}
       </div>
     </div>
