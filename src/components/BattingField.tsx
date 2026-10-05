@@ -9,6 +9,7 @@ import type {
 } from '../types/game';
 import { PITCH_CONFIGS } from '../data/gameData';
 import { sound } from '../utils/audio';
+import { loadTransparentImage } from '../utils/imageLoader';
 import confetti from 'canvas-confetti';
 
 interface BattingFieldProps {
@@ -24,14 +25,14 @@ interface BattingFieldProps {
 interface BallState {
   active: boolean;
   startTime: number;
-  duration: number; // ms to reach plate
+  duration: number;
   x: number;
   y: number;
   scale: number;
   pitchType: PitchType;
   isBall: boolean;
-  targetX: number; // plate arrival X
-  targetY: number; // plate arrival Y
+  targetX: number;
+  targetY: number;
   hit: boolean;
 }
 
@@ -54,6 +55,11 @@ export const BattingField: React.FC<BattingFieldProps> = ({
   // Mouse cursor coords relative to canvas
   const mousePosRef = useRef<{ x: number; y: number }>({ x: 400, y: 440 });
 
+  // Loaded Sprite References
+  const stadiumImgRef = useRef<HTMLImageElement | null>(null);
+  const pitcherSpriteRef = useRef<CanvasImageSource | null>(null);
+  const batterSpriteRef = useRef<CanvasImageSource | null>(null);
+
   // Ball & Flight physics
   const ballRef = useRef<BallState | null>(null);
   const swingProgressRef = useRef<number>(-1);
@@ -75,6 +81,27 @@ export const BattingField: React.FC<BattingFieldProps> = ({
 
   // Aiming circle radius determined by Contact attribute
   const aimCircleRadius = Math.max(22, 16 + totalContact * 0.32);
+
+  // Preload Game Artwork (Stadium background + Chibi Pitcher & Batter sprites)
+  useEffect(() => {
+    const bg = new Image();
+    bg.src = '/stadium.jpg';
+    bg.onload = () => {
+      stadiumImgRef.current = bg;
+    };
+
+    loadTransparentImage('/pitcher.png')
+      .then((sprite) => {
+        pitcherSpriteRef.current = sprite;
+      })
+      .catch((err) => console.warn('Failed loading pitcher sprite', err));
+
+    loadTransparentImage('/batter.png')
+      .then((sprite) => {
+        batterSpriteRef.current = sprite;
+      })
+      .catch((err) => console.warn('Failed loading batter sprite', err));
+  }, []);
 
   // Track mouse coordinates inside canvas
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -103,11 +130,8 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       baseMph + (chosenPitchType === '4-Seam Fastball' ? 4 : chosenPitchType === 'Changeup' ? -12 : -4) + speedVariation
     );
 
-    // Duration based on velocity
     const flightDuration = Math.max(680, Math.min(1450, config.flightMs * (90 / speedMph)));
 
-    // Strike Zone coordinates: center at (400, 440), width: 140, height: 130
-    // Occasional ball outside zone
     const isOutside = Math.random() < 0.28;
     const offsetX = isOutside
       ? (Math.random() > 0.5 ? 85 + Math.random() * 35 : -85 - Math.random() * 35)
@@ -124,7 +148,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       startTime: performance.now(),
       duration: flightDuration,
       x: 400,
-      y: 220,
+      y: 260, // Release from pitcher's hand
       scale: 0.22,
       pitchType: chosenPitchType,
       isBall: isOutside,
@@ -157,14 +181,12 @@ export const BattingField: React.FC<BattingFieldProps> = ({
     swingProgressRef.current = 0;
     const now = performance.now();
     const elapsed = now - ball.startTime;
-    const diff = elapsed - ball.duration; // negative: early, positive: late
+    const diff = elapsed - ball.duration;
 
-    // Aim Cursor distance check: player's mouse must be aligned with the aiming circle / ball
+    // Aim Cursor distance check
     const mouseX = mousePosRef.current.x;
     const mouseY = mousePosRef.current.y;
     const distToAimCircle = Math.hypot(mouseX - ball.targetX, mouseY - ball.targetY);
-
-    // Aim contact accuracy: must be inside or near aimCircleRadius
     const aimAccuracy = Math.max(0, 1 - (distToAimCircle / (aimCircleRadius * 1.5)));
 
     // Timing tolerance scaled by Contact
@@ -173,7 +195,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
     const goodWindow = 100 * contactFactor;
     const hitTolerance = 170 * contactFactor;
 
-    // Check if Auto Home Run is active via full COMBO Gauge!
+    // COMBO Fever Auto Home Run!
     if (isAutoHomeRunReady && Math.abs(diff) <= hitTolerance) {
       ball.hit = true;
       ball.active = false;
@@ -210,7 +232,6 @@ export const BattingField: React.FC<BattingFieldProps> = ({
 
     // Normal swing checks
     if (distToAimCircle > aimCircleRadius * 1.5 || Math.abs(diff) > hitTolerance) {
-      // Missed aim or timing
       sound.playSwingWhoosh();
       sound.playStrike();
       ball.hit = true;
@@ -235,7 +256,6 @@ export const BattingField: React.FC<BattingFieldProps> = ({
     else if (diff < 0) timingLabel = 'EARLY';
     else timingLabel = 'LATE';
 
-    // Outcome determined by Timing + Aim accuracy + Power + Luck
     let outcome: HitOutcome = 'Single';
     let hitQuality: 'Normal' | 'Solid' | 'Homerun' = 'Normal';
     let baseDistance = 210 + totalPower * 2.1;
@@ -259,7 +279,6 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         baseDistance = 315 + Math.random() * 35;
         comboGained = 30;
       }
-
     } else if (timingLabel === 'GOOD') {
       const roll = Math.random();
       if (roll < 0.25 + totalPower / 220) {
@@ -279,7 +298,6 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         comboGained = 5;
       }
     } else {
-      // Early or Late
       if (Math.random() < 0.5) {
         outcome = 'Foul';
         baseDistance = 150;
@@ -343,7 +361,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
     onInningEvent,
   ]);
 
-  // Click & keyboard listeners
+  // Keyboard shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.code === 'Enter') {
@@ -359,7 +377,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [pitchPrompt, throwPitch, handleSwing]);
 
-  // Canvas Main 60 FPS Render Loop: Baseball Heroes Chibi Flash Field
+  // Main Canvas 60 FPS Render Loop
   useEffect(() => {
     let animId: number;
     const canvas = canvasRef.current;
@@ -371,81 +389,21 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       const now = performance.now();
       ctx.clearRect(0, 0, 800, 520);
 
-      // 1. Classic Blue Sky & Grandstands with Spectators
-      const skyGrad = ctx.createLinearGradient(0, 0, 0, 240);
-      skyGrad.addColorStop(0, '#1d4ed8');
-      skyGrad.addColorStop(0.7, '#60a5fa');
-      skyGrad.addColorStop(1, '#bfdbfe');
-      ctx.fillStyle = skyGrad;
-      ctx.fillRect(0, 0, 800, 240);
-
-      // Stadium Upper Deck & Billboard Banners
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 150, 800, 70);
-
-      // Animated Spectators dots
-      for (let row = 0; row < 3; row++) {
-        for (let col = 0; col < 40; col++) {
-          const color = (col + row) % 3 === 0 ? '#f59e0b' : (col + row) % 2 === 0 ? '#ef4444' : '#38bdf8';
-          ctx.fillStyle = color;
-          ctx.beginPath();
-          ctx.arc(15 + col * 20, 165 + row * 16, 3, 0, Math.PI * 2);
-          ctx.fill();
-        }
+      // 1. Draw High-Resolution Authentic Stadium Art
+      if (stadiumImgRef.current && stadiumImgRef.current.complete) {
+        ctx.drawImage(stadiumImgRef.current, 0, 0, 800, 520);
+      } else {
+        // Fallback gradient stadium
+        const skyGrad = ctx.createLinearGradient(0, 0, 0, 240);
+        skyGrad.addColorStop(0, '#1d4ed8');
+        skyGrad.addColorStop(1, '#bfdbfe');
+        ctx.fillStyle = skyGrad;
+        ctx.fillRect(0, 0, 800, 240);
+        ctx.fillStyle = '#16a34a';
+        ctx.fillRect(0, 240, 800, 280);
       }
 
-      // Outfield Wall with Classic Measurements
-      ctx.fillStyle = '#064e3b';
-      ctx.fillRect(0, 210, 800, 36);
-      ctx.fillStyle = '#fef08a';
-      ctx.font = 'bold 12px monospace';
-      ctx.textAlign = 'center';
-      ctx.fillText('★ 400 FT ★', 400, 233);
-      ctx.fillText('325 FT', 110, 233);
-      ctx.fillText('325 FT', 690, 233);
-
-      // 2. Lush Green Diamond Grass & Striping
-      const grass = ctx.createLinearGradient(0, 240, 0, 520);
-      grass.addColorStop(0, '#16a34a');
-      grass.addColorStop(1, '#15803d');
-      ctx.fillStyle = grass;
-      ctx.fillRect(0, 240, 800, 280);
-
-      // Mowed grass pattern
-      ctx.fillStyle = 'rgba(255,255,255,0.06)';
-      for (let i = 0; i < 800; i += 70) {
-        ctx.fillRect(i, 240, 35, 280);
-      }
-
-      // Infield Dirt Diamond
-      ctx.fillStyle = '#b45309';
-      ctx.beginPath();
-      ctx.moveTo(400, 250);
-      ctx.lineTo(590, 365);
-      ctx.lineTo(400, 485);
-      ctx.lineTo(210, 365);
-      ctx.closePath();
-      ctx.fill();
-
-      // Pitcher's Mound Dirt Circle
-      ctx.fillStyle = '#92400e';
-      ctx.beginPath();
-      ctx.ellipse(400, 275, 52, 24, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(388, 272, 24, 5); // Pitcher rubber
-
-      // Chalk Foul lines
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(400, 465);
-      ctx.lineTo(70, 240);
-      ctx.moveTo(400, 465);
-      ctx.lineTo(730, 240);
-      ctx.stroke();
-
-      // Home Plate Pentagon
+      // Infield Dirt & Home Plate Markings
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
       ctx.moveTo(390, 452);
@@ -456,17 +414,16 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       ctx.closePath();
       ctx.fill();
 
-      // Batter Box Outlines
+      // Batter Boxes
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
       ctx.lineWidth = 2;
       ctx.strokeRect(315, 430, 48, 68);
       ctx.strokeRect(437, 430, 48, 68);
 
-      // 3. Strike Zone Rectangle (Authentic Syntasia 9-grid overlay)
+      // Strike Zone Grid
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
       ctx.lineWidth = 2;
       ctx.strokeRect(330, 375, 140, 130);
-      // Inner grid lines
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
       ctx.setLineDash([2, 2]);
       ctx.beginPath();
@@ -481,44 +438,29 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       ctx.stroke();
       ctx.setLineDash([]);
 
-      // 4. Opponent Chibi Pitcher Sprite
+      // 2. Chibi Opponent Pitcher Sprite on Mound
       ctx.save();
       const pX = 400;
-      const pY = 265;
-      // Shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.3)';
-      ctx.beginPath();
-      ctx.ellipse(pX, pY + 14, 18, 6, 0, 0, Math.PI * 2);
-      ctx.fill();
-      // Jersey
-      ctx.fillStyle = '#dc2626';
-      ctx.beginPath();
-      ctx.arc(pX, pY - 5, 14, 0, Math.PI * 2);
-      ctx.fill();
-      // Chibi Head
-      ctx.fillStyle = '#fed7aa';
-      ctx.beginPath();
-      ctx.arc(pX, pY - 24, 12, 0, Math.PI * 2);
-      ctx.fill();
-      // Red Cap
-      ctx.fillStyle = '#991b1b';
-      ctx.beginPath();
-      ctx.arc(pX, pY - 28, 12, Math.PI, 0, false);
-      ctx.fill();
-      ctx.fillRect(pX - 2, pY - 29, 16, 4); // Visor
-      // Eyes
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(pX - 4, pY - 24, 2.5, 3);
-      ctx.fillRect(pX + 3, pY - 24, 2.5, 3);
+      const pY = 275;
+      if (pitcherSpriteRef.current) {
+        // Draw real chibi pitcher sprite with slight windup bounce
+        const bounce = pitchPrompt === 'PITCHING' ? Math.sin(now / 80) * 3 : 0;
+        ctx.drawImage(pitcherSpriteRef.current, pX - 45, pY - 80 + bounce, 90, 90);
+      } else {
+        // Fallback chibi pitcher
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.arc(pX, pY - 5, 14, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
 
-      // 5. Active Pitch Ball & AIMING CIRCLE (Syntasia Mechanics)
+      // 3. Active Ball & Aiming Circle
       const ball = ballRef.current;
       if (ball && ball.active) {
         const elapsed = now - ball.startTime;
         const progress = Math.min(1.15, elapsed / ball.duration);
 
-        // Calculate pitch curve path
         const currentX = 400 + (ball.targetX - 400) * progress;
         const arcY = Math.sin(progress * Math.PI) * -38;
         const currentY = 250 + (ball.targetY - 250) * progress + arcY;
@@ -528,8 +470,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         ball.y = currentY;
         ball.scale = currentScale;
 
-        // AUTHENTIC AIMING CIRCLE overlay at arrival spot!
-        // As the ball gets closer, the aiming circle shrinks / focuses into the sweet spot
+        // AIMING CIRCLE TARGET
         ctx.save();
         ctx.strokeStyle = progress > 0.7 ? '#ef4444' : '#38bdf8';
         ctx.lineWidth = 2.5;
@@ -537,20 +478,18 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         ctx.arc(ball.targetX, ball.targetY, aimCircleRadius, 0, Math.PI * 2);
         ctx.stroke();
 
-        // Pulsing Sweet Spot Bullseye
         ctx.fillStyle = progress > 0.7 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(56, 189, 248, 0.15)';
         ctx.beginPath();
         ctx.arc(ball.targetX, ball.targetY, aimCircleRadius, 0, Math.PI * 2);
         ctx.fill();
 
-        // Inner target crosshair
         ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(ball.targetX - 8, ball.targetY);
         ctx.lineTo(ball.targetX + 8, ball.targetY);
         ctx.moveTo(ball.targetX, ball.targetY - 8);
-        ctx.lineTo(ball.targetX, ball.targetY + 8);
+        ctx.lineTo(ball.targetX + 8, ball.targetY);
         ctx.stroke();
         ctx.restore();
 
@@ -568,13 +507,12 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         ctx.lineTo(currentX, currentY);
         ctx.stroke();
 
-        // The White Baseball
+        // Baseball with Seams
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(currentX, currentY, 11 * currentScale, 0, Math.PI * 2);
         ctx.fill();
 
-        // Red Seams
         ctx.strokeStyle = '#dc2626';
         ctx.lineWidth = 1.5 * currentScale;
         ctx.beginPath();
@@ -584,7 +522,6 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         ctx.arc(currentX + 3.5 * currentScale, currentY, 6.5 * currentScale, Math.PI / 2, -Math.PI / 2);
         ctx.stroke();
 
-        // Strike / Ball called if no swing
         if (progress >= 1.08 && !ball.hit) {
           ball.active = false;
           const isBall = ball.isBall;
@@ -600,13 +537,13 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         }
       }
 
-      // 6. Flying Hit Ball Flight Animation
+      // 4. Flying Hit Ball Flight Animation
       const flight = hitFlightRef.current;
       if (flight && flight.active) {
         flight.x += flight.vx;
         flight.y += flight.vy;
         flight.z += flight.vz;
-        flight.vz -= 0.3; // gravity
+        flight.vz -= 0.3;
 
         const bY = flight.y - flight.z;
         const scale = Math.max(0.2, 1 - flight.z / 200);
@@ -626,67 +563,38 @@ export const BattingField: React.FC<BattingFieldProps> = ({
         }
       }
 
-      // 7. Chibi Batter Hero Character
+      // 5. Chibi Batter Hero Character
       ctx.save();
-      const bX = 340;
-      const bY = 460;
+      const bX = 330;
+      const bY = 470;
 
-      // Shadow
-      ctx.fillStyle = 'rgba(0,0,0,0.35)';
-      ctx.beginPath();
-      ctx.ellipse(bX, bY + 14, 24, 8, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Uniform Body
-      ctx.fillStyle = '#1d4ed8';
-      ctx.beginPath();
-      ctx.arc(bX, bY - 14, 18, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Chibi Head
-      ctx.fillStyle = '#fed7aa';
-      ctx.beginPath();
-      ctx.arc(bX, bY - 40, 14, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Blue Helmet
-      ctx.fillStyle = '#1e40af';
-      ctx.beginPath();
-      ctx.arc(bX, bY - 44, 15, Math.PI, 0, false);
-      ctx.fill();
-      ctx.fillRect(bX + 3, bY - 45, 16, 5); // Visor
-
-      // Batter Swing Motion & Bat
-      let batAngle = -0.75;
+      // Batter Swing animation rotation
+      let batAngle = 0;
       if (swingProgressRef.current >= 0) {
         swingProgressRef.current += 0.085;
         const swingT = swingProgressRef.current;
         if (swingT <= 1) {
-          batAngle = -0.75 + swingT * 2.6;
+          batAngle = Math.sin(swingT * Math.PI) * -0.35;
         } else {
           swingProgressRef.current = -1;
         }
       }
 
-      ctx.save();
-      ctx.translate(bX + 12, bY - 28);
-      ctx.rotate(batAngle);
-      // Bat Handle
-      ctx.fillStyle = '#78350f';
-      ctx.fillRect(-2, -6, 5, 12);
-      // Bat Barrel
-      const batGrad = ctx.createLinearGradient(0, -48, 0, 0);
-      batGrad.addColorStop(0, '#f59e0b');
-      batGrad.addColorStop(1, '#b45309');
-      ctx.fillStyle = batGrad;
-      ctx.beginPath();
-      ctx.roundRect(-4, -50, 9, 44, 3);
-      ctx.fill();
+      if (batterSpriteRef.current) {
+        ctx.translate(bX, bY);
+        ctx.rotate(batAngle);
+        // Draw real chibi batter sprite
+        ctx.drawImage(batterSpriteRef.current, -70, -140, 140, 140);
+      } else {
+        // Fallback batter
+        ctx.fillStyle = '#1d4ed8';
+        ctx.beginPath();
+        ctx.arc(bX, bY - 14, 18, 0, Math.PI * 2);
+        ctx.fill();
+      }
       ctx.restore();
 
-      ctx.restore();
-
-      // 8. Player Mouse Aim Reticle Cursor on canvas
+      // 6. Player Mouse Aim Reticle Cursor
       const mouse = mousePosRef.current;
       ctx.save();
       ctx.strokeStyle = '#facc15';
@@ -706,7 +614,7 @@ export const BattingField: React.FC<BattingFieldProps> = ({
 
     animId = requestAnimationFrame(render);
     return () => cancelAnimationFrame(animId);
-  }, [aimCircleRadius]);
+  }, [aimCircleRadius, pitchPrompt]);
 
   return (
     <div className="relative w-full max-w-4xl mx-auto rounded-2xl overflow-hidden border-2 border-slate-700 bg-slate-900 shadow-2xl">
