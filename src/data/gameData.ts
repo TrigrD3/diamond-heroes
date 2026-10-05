@@ -7,8 +7,33 @@ import type {
   StadiumUpgrade,
   PlayerStats,
   SeasonStandings,
-  DailyQuest
+  DailyQuest,
+  LineupSlot
 } from '../types/game';
+
+export const INITIAL_HOME_LINEUP: LineupSlot[] = [
+  { order: 1, name: 'Marco', avatar: '/face_marco.png', avg: '.200', trend: 'up' },
+  { order: 2, name: 'Lucas', avatar: '/face_lucas.png', avg: '.201', trend: 'diag-up' },
+  { order: 3, name: 'Andy', avatar: '/face_andy.png', avg: '.657', trend: 'diag-up', isPlayerUser: true },
+  { order: 4, name: 'Kirby', avatar: '/face_kirby.png', avg: '.200', trend: 'diag-up' },
+  { order: 5, name: 'Aaron', avatar: '/face_aaron.png', avg: '.201', trend: 'level' },
+  { order: 6, name: 'Anton', avatar: '/face_anton.png', avg: '.200', trend: 'level' },
+  { order: 7, name: 'Jake', avatar: '/face_jake.png', avg: '.200', trend: 'level' },
+  { order: 8, name: 'Andy', avatar: '/face_andy.png', avg: '.201', trend: 'diag-down' },
+  { order: 9, name: 'Leon', avatar: '/face_leon.png', avg: '.201', trend: 'diag-down' },
+];
+
+export const INITIAL_AWAY_LINEUP: LineupSlot[] = [
+  { order: 1, name: 'Kyle', avatar: '/face_kyle.png', avg: '.254', trend: 'up' },
+  { order: 2, name: 'Jake', avatar: '/face_jake.png', avg: '.244', trend: 'diag-up' },
+  { order: 3, name: 'Fonzo', avatar: '/face_fonzo.png', avg: '.556', trend: 'down' },
+  { order: 4, name: 'Leon', avatar: '/face_leon.png', avg: '.232', trend: 'level' },
+  { order: 5, name: 'Lucas', avatar: '/face_lucas.png', avg: '.231', trend: 'level' },
+  { order: 6, name: 'Aaron', avatar: '/face_aaron.png', avg: '.225', trend: 'down' },
+  { order: 7, name: 'Alex', avatar: '/face_anton.png', avg: '.246', trend: 'diag-up' },
+  { order: 8, name: 'Kirby', avatar: '/face_kirby.png', avg: '.235', trend: 'level' },
+  { order: 9, name: 'Fredrick', avatar: '/face_marco.png', avg: '.231', trend: 'diag-down' },
+];
 
 export const INITIAL_PLAYER_STATS: PlayerStats = {
   contact: 45, // Contact: Aim circle width & sweet spot forgiveness

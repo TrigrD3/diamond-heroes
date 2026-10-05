@@ -19,10 +19,12 @@ import {
   INITIAL_QUESTS,
   LEAGUE_OPPONENTS,
   SHOP_ITEMS,
-  CARD_PACK_POOL
+  CARD_PACK_POOL,
+  INITIAL_HOME_LINEUP,
+  INITIAL_AWAY_LINEUP
 } from './data/gameData';
-import { Scoreboard } from './components/Scoreboard';
 import { BattingField } from './components/BattingField';
+import { MatchSimulationView } from './components/MatchSimulationView';
 import { PlayerCard } from './components/PlayerCard';
 import { ProShop } from './components/ProShop';
 import { CardsManager } from './components/CardsManager';
@@ -36,13 +38,24 @@ type ActiveTab = 'MATCH' | 'CARDS' | 'PLAYER' | 'SHOP' | 'STADIUM' | 'LEAGUE';
 export function App() {
   const [activeTab, setActiveTab] = useState<ActiveTab>('MATCH');
 
+  // Match View Mode: 'SIMULATION' (lineup card & teammate simulation) or 'BAT' (player 3D duel)
+  const [matchMode, setMatchMode] = useState<'SIMULATION' | 'BAT'>('SIMULATION');
+  const [gameSpeed, setGameSpeed] = useState<number>(1);
+  const [simBatterIdx, setSimBatterIdx] = useState<number>(0);
+  const [simBanner, setSimBanner] = useState<string | null>(null);
+  const [matchScore, setMatchScore] = useState<number>(7067);
+
+  // Lineups
+  const [homeLineup] = useState(INITIAL_HOME_LINEUP);
+  const [awayLineup] = useState(INITIAL_AWAY_LINEUP);
+
   // Authentic Syntasia Facebook Currencies & Energy (15 max, 5 per match)
   const [energy, setEnergy] = useState<number>(15);
-  const [coins, setCoins] = useState<number>(1500);
-  const [cash, setCash] = useState<number>(20);
-  const [level, setLevel] = useState<number>(1);
-  const [exp, setExp] = useState<number>(40);
-  const [maxExp, setMaxExp] = useState<number>(100);
+  const [coins, setCoins] = useState<number>(6784);
+  const [cash, setCash] = useState<number>(0);
+  const [level, setLevel] = useState<number>(3);
+  const [exp, setExp] = useState<number>(508);
+  const [maxExp, setMaxExp] = useState<number>(850);
   const [statPoints, setStatPoints] = useState<number>(3);
   const [unlockedTierIndex, setUnlockedTierIndex] = useState<number>(0);
 
@@ -68,7 +81,7 @@ export function App() {
 
   const [scoreboard, setScoreboard] = useState<MatchScoreboard>({
     inning: 1,
-    isTop: false,
+    isTop: true,
     playerScore: 0,
     opponentScore: 0,
     balls: 0,
@@ -77,6 +90,12 @@ export function App() {
     bases: [false, false, false],
     totalInnings: 3,
     currentBatterOrder: 1,
+    inningScores: {
+      home: [0, 0, 0],
+      away: [0, 0, 0],
+      homeHits: 1,
+      awayHits: 1,
+    },
   });
 
   const [matchHistory, setMatchHistory] = useState<string[]>([
@@ -185,23 +204,148 @@ export function App() {
     const oppToUse = opp || currentOpponent;
     setCurrentOpponent(oppToUse);
 
-    const initialOppRuns = Math.floor(Math.random() * (oppToUse.difficulty + 1));
     setScoreboard({
       inning: 1,
-      isTop: false,
+      isTop: true, // Away team bats first
       playerScore: 0,
-      opponentScore: initialOppRuns,
+      opponentScore: 0,
       balls: 0,
       strikes: 0,
       outs: 0,
       bases: [false, false, false],
       totalInnings: 3,
       currentBatterOrder: 1,
+      inningScores: {
+        home: [0, 0, 0],
+        away: [0, 0, 0],
+        homeHits: 0,
+        awayHits: 0,
+      },
     });
-    setMatchHistory([`Match started vs ${oppToUse.name}! Pitcher: ${oppToUse.pitcherName}`]);
+    setMatchScore(4050);
+    setSimBatterIdx(0);
+    setSimBanner(null);
+    setMatchMode('SIMULATION');
+    setMatchHistory([`Match started: Texas vs ${oppToUse.name}!`]);
     setMatchEndResult(null);
     setActiveTab('MATCH');
   };
+
+  // Teammate & Opponent At-Bat Simulator Effect
+  useEffect(() => {
+    if (activeTab !== 'MATCH' || matchMode !== 'SIMULATION' || matchEndResult) return;
+
+    const delay = Math.max(400, Math.round(1800 / gameSpeed));
+    const timer = setTimeout(() => {
+      setScoreboard((prev) => {
+        const isTop = prev.isTop;
+        const currentLineup = isTop ? awayLineup : homeLineup;
+        const batter = currentLineup[simBatterIdx % 9];
+
+        // Check if it is the USER batter's turn (Home order #3, Andy)
+        if (!isTop && batter.isPlayerUser) {
+          // Switch to 3D batting duel!
+          sound.playCheer();
+          setMatchMode('BAT');
+          return {
+            ...prev,
+            currentBatterOrder: batter.order,
+          };
+        }
+
+        // Simulate At-Bat outcome for AI / teammate
+        const outcomes = ['FLY OUT', 'GROUND OUT', 'STRIKE OUT', 'SINGLE', 'DOUBLE', 'WALK'];
+        const weights = [0.3, 0.28, 0.16, 0.16, 0.06, 0.04];
+        let roll = Math.random();
+        let chosen = 'FLY OUT';
+        let cum = 0;
+        for (let i = 0; i < outcomes.length; i++) {
+          cum += weights[i];
+          if (roll <= cum) {
+            chosen = outcomes[i];
+            break;
+          }
+        }
+
+        setSimBanner(chosen);
+        setTimeout(() => setSimBanner(null), delay * 0.75);
+
+        let { outs, bases, playerScore, opponentScore, inningScores, inning, totalInnings } = prev;
+        const innIdx = Math.max(0, inning - 1);
+
+        if (chosen.includes('OUT')) {
+          outs += 1;
+        } else if (chosen === 'SINGLE') {
+          if (bases[2]) {
+            if (isTop) opponentScore += 1;
+            else playerScore += 1;
+          }
+          bases = [true, bases[0], bases[1]];
+          if (isTop) inningScores.awayHits += 1;
+          else inningScores.homeHits += 1;
+        } else if (chosen === 'DOUBLE') {
+          const runs = (bases[1] ? 1 : 0) + (bases[2] ? 1 : 0);
+          if (isTop) opponentScore += runs;
+          else playerScore += runs;
+          bases = [false, true, bases[0]];
+          if (isTop) inningScores.awayHits += 1;
+          else inningScores.homeHits += 1;
+        }
+
+        // Update Inning Scores
+        const updatedHomeScores = [...inningScores.home];
+        const updatedAwayScores = [...inningScores.away];
+        if (isTop) updatedAwayScores[innIdx] = opponentScore;
+        else updatedHomeScores[innIdx] = playerScore;
+
+        let nextTop = isTop;
+        let nextInning = inning;
+        let nextBatterIdx = simBatterIdx + 1;
+
+        if (outs >= 3) {
+          outs = 0;
+          bases = [false, false, false];
+          if (isTop) {
+            // Half-inning switch: Now Home team bats
+            nextTop = false;
+            nextBatterIdx = 0;
+          } else {
+            // Full Inning ended: Move to next inning
+            if (inning < totalInnings) {
+              nextInning += 1;
+              nextTop = true;
+              nextBatterIdx = 0;
+            } else {
+              // Game over!
+              const won = playerScore >= opponentScore;
+              setTimeout(() => handleMatchFinished(won), 500);
+            }
+          }
+        }
+
+        setSimBatterIdx(nextBatterIdx);
+        setMatchScore((s) => s + (chosen.includes('OUT') ? 20 : 150));
+
+        return {
+          ...prev,
+          outs,
+          bases,
+          playerScore,
+          opponentScore,
+          isTop: nextTop,
+          inning: nextInning,
+          currentBatterOrder: currentLineup[nextBatterIdx % 9].order,
+          inningScores: {
+            ...inningScores,
+            home: updatedHomeScores,
+            away: updatedAwayScores,
+          },
+        };
+      });
+    }, delay);
+
+    return () => clearTimeout(timer);
+  }, [activeTab, matchMode, simBatterIdx, gameSpeed, awayLineup, homeLineup, matchEndResult]);
 
   // Refill Energy with Cash
   const handleRefillEnergy = () => {
@@ -244,8 +388,21 @@ export function App() {
       setComboGauge((g) => Math.min(100, g + comboPointsEarned));
     }
 
+    setMatchScore((s) => s + (outcome === 'Home Run' ? 3000 : outcome === 'Triple' ? 1800 : outcome === 'Double' ? 1200 : outcome === 'Single' ? 700 : 50));
+
+    // When player at-bat ends (not a non-strikeout strike or foul), transition back to simulation view after 2.5s
+    const isAtBatFinished = outcome === 'Home Run' || outcome === 'Triple' || outcome === 'Double' || outcome === 'Single' || outcome === 'Out' || (outcome === 'Strike' && scoreboard.strikes >= 2) || (outcome === 'Ball' && scoreboard.balls >= 3);
+
+    if (isAtBatFinished) {
+      setTimeout(() => {
+        setMatchMode('SIMULATION');
+        setSimBatterIdx((idx) => idx + 1);
+      }, 2400);
+    }
+
     setScoreboard((prev) => {
-      let { balls, strikes, outs, bases, playerScore, opponentScore, inning, totalInnings } = prev;
+      let { balls, strikes, outs, bases, playerScore, opponentScore, inning, totalInnings, inningScores } = prev;
+      const innIdx = Math.max(0, inning - 1);
 
       if (outcome === 'Ball') {
         balls += 1;
@@ -279,15 +436,22 @@ export function App() {
         else if (outcome === 'Triple') bases = [false, false, true];
         else if (outcome === 'Double') bases = [false, true, false];
         else if (outcome === 'Single') bases = [true, bases[0], bases[1]];
+
+        inningScores.homeHits += 1;
       }
+
+      const updatedHomeScores = [...inningScores.home];
+      updatedHomeScores[innIdx] = playerScore;
+
+      let nextTop = prev.isTop;
+      let nextInning = inning;
 
       if (outs >= 3) {
         outs = 0;
         bases = [false, false, false];
-        opponentScore += Math.random() < 0.35 ? 1 : 0;
-
         if (inning < totalInnings) {
-          inning += 1;
+          nextInning += 1;
+          nextTop = true;
         } else {
           const playerWon = playerScore >= opponentScore;
           setTimeout(() => handleMatchFinished(playerWon), 600);
@@ -302,7 +466,12 @@ export function App() {
         bases,
         playerScore,
         opponentScore,
-        inning,
+        inning: nextInning,
+        isTop: nextTop,
+        inningScores: {
+          ...inningScores,
+          home: updatedHomeScores,
+        },
       };
     });
   };
@@ -404,44 +573,62 @@ export function App() {
           </div>
 
           {/* Authentic HUD Bar */}
-          <div className="flex items-center flex-wrap gap-2.5 text-xs">
+          <div className="flex items-center flex-wrap gap-3 text-xs">
+            {/* Rookie Tier Badge + Level Star & EXP Bar */}
+            <div className="flex items-center gap-2 bg-[#181a20]/90 border border-[#374151] px-2.5 py-1 rounded-xl shadow-md">
+              <img src="/hud_rookie.png" alt="Rookie" className="h-7 w-auto object-contain" />
+              <div className="flex flex-col">
+                <div className="flex items-center gap-1">
+                  <span className="text-[11px] font-black text-amber-300">★ Lv. {level}</span>
+                  <span className="text-[10px] font-mono text-slate-300">({exp}/{maxExp})</span>
+                </div>
+                <div className="w-20 bg-slate-900 h-1.5 rounded-full overflow-hidden border border-slate-700 mt-0.5">
+                  <div
+                    className="bg-gradient-to-r from-sky-500 to-blue-600 h-full rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, (exp / maxExp) * 100)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
             {/* Energy Meter (Cost: 5 per match) */}
-            <div className="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-2 shadow-sm">
-              <span className="text-amber-400 font-bold">⚡ ENERGY</span>
-              <div className="w-20 bg-slate-900 h-2.5 rounded-full overflow-hidden border border-slate-700">
+            <div className="bg-[#181a20]/90 border border-[#374151] px-2.5 py-1 rounded-xl flex items-center gap-2 shadow-sm">
+              <span className="text-emerald-400 font-black">⚡ {energy}/15</span>
+              <div className="w-16 bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-700">
                 <div
-                  className="bg-amber-400 h-full rounded-full transition-all duration-300"
+                  className="bg-gradient-to-r from-emerald-500 to-green-400 h-full rounded-full transition-all duration-300"
                   style={{ width: `${(energy / 15) * 100}%` }}
                 />
               </div>
-              <span className="font-mono font-bold text-white">{energy}/15</span>
-              {energy < 15 && (
-                <button
-                  onClick={handleRefillEnergy}
-                  className="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-1.5 py-0.5 rounded transition-transform active:scale-95 cursor-pointer"
-                  title="Refill with 5 Cash"
-                >
-                  +Refill (5💵)
-                </button>
-              )}
+              <button
+                onClick={handleRefillEnergy}
+                className="text-[9px] bg-[#16a34a] hover:bg-[#15803d] text-white font-black px-1.5 py-0.5 rounded transition-transform active:scale-95 cursor-pointer shadow"
+                title="Refill with 5 Cash"
+              >
+                +ADD
+              </button>
             </div>
 
             {/* Coins */}
-            <div className="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-bold shadow-sm">
-              <span className="text-amber-400">🪙</span>
-              <span className="font-mono">{coins}</span>
+            <div className="bg-[#181a20]/90 border border-[#374151] px-2.5 py-1 rounded-xl flex items-center gap-1.5 font-bold shadow-sm">
+              <span className="text-amber-400 font-black">🪙 {coins.toLocaleString()}</span>
+              <button
+                onClick={() => setCoins((c) => c + 1000)}
+                className="text-[9px] bg-amber-600 hover:bg-amber-500 text-white font-black px-1.5 py-0.5 rounded cursor-pointer"
+              >
+                +ADD
+              </button>
             </div>
 
             {/* Cash */}
-            <div className="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-bold shadow-sm">
-              <span className="text-emerald-400">💵</span>
-              <span className="font-mono">{cash}</span>
-            </div>
-
-            {/* Level */}
-            <div className="bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 font-bold shadow-sm">
-              <span className="text-sky-400">LVL</span>
-              <span className="font-mono">{level}</span>
+            <div className="bg-[#181a20]/90 border border-[#374151] px-2.5 py-1 rounded-xl flex items-center gap-1.5 font-bold shadow-sm">
+              <span className="text-emerald-400 font-black">💵 {cash}</span>
+              <button
+                onClick={() => setCash((c) => c + 10)}
+                className="text-[9px] bg-emerald-700 hover:bg-emerald-600 text-white font-black px-1.5 py-0.5 rounded cursor-pointer"
+              >
+                +ADD
+              </button>
             </div>
 
             {/* Quests button */}
@@ -534,39 +721,68 @@ export function App() {
       {/* Main Content Area */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 flex flex-col justify-center">
         {activeTab === 'MATCH' && (
-          <div className="space-y-4">
-            <Scoreboard
-              scoreboard={scoreboard}
-              season={season}
-              playerName="You & Heroes"
-              opponentName={currentOpponent.name}
-            />
+          <div className="flex flex-col items-center justify-center space-y-3">
+            {/* View Mode Switching: Simulation View vs Batting Duel */}
+            {matchMode === 'SIMULATION' ? (
+              <MatchSimulationView
+                scoreboard={scoreboard}
+                homeLineup={homeLineup}
+                awayLineup={awayLineup}
+                homeTeamName="Texas"
+                awayTeamName={currentOpponent.name}
+                currentSimBatterIndex={simBatterIdx}
+                simOutcomeBanner={simBanner}
+                onSpeedChange={(spd) => setGameSpeed(spd)}
+                gameSpeed={gameSpeed}
+                onSkipToUserAtBat={() => {
+                  sound.playCheer();
+                  setMatchMode('BAT');
+                }}
+              />
+            ) : (
+              <BattingField
+                opponent={currentOpponent}
+                playerStats={playerStats}
+                playerGear={playerGear}
+                activeCards={cards}
+                scoreboard={scoreboard}
+                season={season}
+                comboGauge={comboGauge}
+                isAutoHomeRunReady={isAutoHomeRunReady}
+                score={matchScore}
+                onInningEvent={handleInningEvent}
+                onBatterChanged={handleBatterChanged}
+                onOpenLeaderboard={() => alert('Global Facebook Leaderboard: Rank #12 (Score: ' + matchScore + ')')}
+                onActivateComboFever={() => {
+                  if (isAutoHomeRunReady) sound.playCheer();
+                }}
+              />
+            )}
 
-            <BattingField
-              opponent={currentOpponent}
-              playerStats={playerStats}
-              playerGear={playerGear}
-              activeCards={cards}
-              scoreboard={scoreboard}
-              comboGauge={comboGauge}
-              isAutoHomeRunReady={isAutoHomeRunReady}
-              onInningEvent={handleInningEvent}
-              onBatterChanged={handleBatterChanged}
-            />
-
-            <div className="max-w-4xl mx-auto w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs flex items-center justify-between">
+            {/* Quick Match Mode Switcher & In-Game Announcer Bar */}
+            <div className="max-w-[800px] mx-auto w-full bg-[#181a20]/95 border-2 border-[#334155] rounded-xl p-3 text-xs flex items-center justify-between shadow-xl">
               <div className="flex items-center gap-2 overflow-hidden">
-                <span className="font-bold text-amber-400 shrink-0">📢 Announcer:</span>
-                <span className="text-slate-300 truncate font-mono">
-                  {matchHistory[0]}
+                <span className="font-black text-amber-400 shrink-0">📢 ANNOUNCER:</span>
+                <span className="text-slate-200 truncate font-mono">
+                  {matchMode === 'SIMULATION'
+                    ? `Teammates in play! Watch simulation or click ⏩ to bat with Andy (#3 in lineup)!`
+                    : matchHistory[0]}
                 </span>
               </div>
-              <button
-                onClick={() => startNewMatch()}
-                className="text-[11px] text-slate-400 hover:text-white underline shrink-0 ml-2 cursor-pointer"
-              >
-                Restart (5⚡)
-              </button>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setMatchMode(matchMode === 'SIMULATION' ? 'BAT' : 'SIMULATION')}
+                  className="text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 font-black px-2.5 py-1 rounded-lg border border-slate-600 transition-colors cursor-pointer"
+                >
+                  {matchMode === 'SIMULATION' ? '🏏 Switch to Batting Duel' : '📋 Switch to Lineup View'}
+                </button>
+                <button
+                  onClick={() => startNewMatch()}
+                  className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
+                >
+                  Restart (5⚡)
+                </button>
+              </div>
             </div>
           </div>
         )}

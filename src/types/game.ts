@@ -60,6 +60,22 @@ export interface PitchConfig {
 export type SwingTiming = 'PERFECT' | 'GOOD' | 'EARLY' | 'LATE' | 'MISS';
 export type HitOutcome = 'Home Run' | 'Triple' | 'Double' | 'Single' | 'Out' | 'Foul' | 'Strike' | 'Ball';
 
+export interface InningScore {
+  home: number[];
+  away: number[];
+  homeHits: number;
+  awayHits: number;
+}
+
+export interface LineupSlot {
+  order: number;
+  name: string;
+  avatar: string;
+  avg: string;
+  trend: 'up' | 'diag-up' | 'level' | 'diag-down' | 'down';
+  isPlayerUser?: boolean;
+}
+
 export interface MatchScoreboard {
   inning: number;
   isTop: boolean;
@@ -71,6 +87,7 @@ export interface MatchScoreboard {
   bases: [boolean, boolean, boolean];
   totalInnings: number;
   currentBatterOrder: number; // 1 to 9
+  inningScores: InningScore;
 }
 
 export interface SeasonStandings {
