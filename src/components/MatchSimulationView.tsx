@@ -46,7 +46,7 @@ export const MatchSimulationView: React.FC<MatchSimulationViewProps> = ({
 
   return (
     <div className="relative w-full h-[520px] max-w-[800px] mx-auto select-none overflow-hidden bg-cover bg-center rounded-2xl shadow-2xl border-4 border-[#1e293b]"
-      style={{ backgroundImage: `url('/bh_stadium_perfect.png')` }}
+      style={{ backgroundImage: `url('/assets/images/stadium/bh_stadium_1200.png')` }}
     >
       {/* Top Stadium Background Overlay */}
       <div className="absolute inset-0 bg-black/25 pointer-events-none" />

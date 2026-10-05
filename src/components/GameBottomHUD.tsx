@@ -27,7 +27,7 @@ interface GameBottomHUDProps {
 
 export const GameBottomHUD: React.FC<GameBottomHUDProps> = ({
   batterName,
-  batterAvatar = '/hud_avatar.png',
+  batterAvatar = '/assets/images/ui/hud_avatar.png',
   playerStats,
   comboGauge,
   isComboReady,

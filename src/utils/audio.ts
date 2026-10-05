@@ -10,12 +10,12 @@ class SoundSystem {
   private preloadSFX() {
     if (typeof window === 'undefined') return;
     const sfxList = [
-      { key: 'bat_crack', url: '/sfx_bat_crack.wav' },
-      { key: 'cheer', url: '/sfx_cheer.wav' },
-      { key: 'strike', url: '/sfx_strike.wav' },
-      { key: 'swing', url: '/sfx_swing.wav' },
-      { key: 'coin', url: '/sfx_coin.wav' },
-      { key: 'pitch', url: '/sfx_pitch.wav' },
+      { key: 'bat_crack', url: '/assets/audio/sfx_bat_crack.wav' },
+      { key: 'cheer', url: '/assets/audio/sfx_cheer.wav' },
+      { key: 'strike', url: '/assets/audio/sfx_strike.wav' },
+      { key: 'swing', url: '/assets/audio/sfx_swing.wav' },
+      { key: 'coin', url: '/assets/audio/sfx_coin.wav' },
+      { key: 'pitch', url: '/assets/audio/sfx_pitch.wav' },
     ];
 
     sfxList.forEach(({ key, url }) => {
@@ -56,7 +56,7 @@ class SoundSystem {
 
     // Direct audio tag fallback
     try {
-      const snd = new Audio(`/sfx_${key}.wav`);
+      const snd = new Audio(`/assets/audio/sfx_${key}.wav`);
       snd.volume = volume;
       snd.play().catch(() => {});
     } catch {

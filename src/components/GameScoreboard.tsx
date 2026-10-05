@@ -23,7 +23,7 @@ export const GameScoreboard: React.FC<GameScoreboardProps> = ({
       <div className="flex items-center gap-1.5 drop-shadow-md">
         <div className="relative flex items-center justify-center">
           <img
-            src="/hud_tex_badge.png"
+            src="/assets/images/ui/hud_tex_badge.png"
             alt={homeTeamName}
             className="h-12 w-auto object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
           />
@@ -147,7 +147,7 @@ export const GameScoreboard: React.FC<GameScoreboardProps> = ({
       <div className="flex items-center gap-1.5 drop-shadow-md">
         <div className="relative flex items-center justify-center">
           <img
-            src="/hud_oak_badge.png"
+            src="/assets/images/ui/hud_oak_badge.png"
             alt={awayTeamName}
             className="h-12 w-auto object-contain filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.6)]"
           />

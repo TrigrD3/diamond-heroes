@@ -110,25 +110,25 @@ export const BattingField: React.FC<BattingFieldProps> = ({
   // Preload graphics
   useEffect(() => {
     const bg = new Image();
-    bg.src = '/bh_stadium_1200.png';
+    bg.src = '/assets/images/stadium/bh_stadium_1200.png';
     bg.onload = () => {
       stadiumImgRef.current = bg;
     };
 
     const ballImg = new Image();
-    ballImg.src = '/bh_ball_clean.png';
+    ballImg.src = '/assets/images/characters/bh_ball_clean.png';
     ballImg.onload = () => {
       ballSpriteRef.current = ballImg;
     };
 
     const pitcherImg = new Image();
-    pitcherImg.src = '/bh_pitcher_transparent.png';
+    pitcherImg.src = '/assets/images/characters/bh_pitcher_transparent.png';
     pitcherImg.onload = () => {
       pitcherSpriteRef.current = pitcherImg;
     };
 
     const batterImg = new Image();
-    batterImg.src = '/bh_batter_intact_clean.png';
+    batterImg.src = '/assets/images/characters/bh_batter_intact_clean.png';
     batterImg.onload = () => {
       batterSpriteRef.current = batterImg;
     };
@@ -703,13 +703,13 @@ export const BattingField: React.FC<BattingFieldProps> = ({
       {feedback && (
         <div className="absolute top-[38%] left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none text-center z-30 animate-bounce">
           {feedback.text === 'STRIKE' ? (
-            <img src="/stamp_strike.svg" alt="STRIKE" className="w-80 h-auto filter drop-shadow-2xl mx-auto" />
+            <img src="/assets/stamps/stamp_strike.svg" alt="STRIKE" className="w-80 h-auto filter drop-shadow-2xl mx-auto" />
           ) : feedback.text === 'NICE!' || feedback.text === 'GOOD!' || feedback.text === 'PERFECT!' ? (
-            <img src="/stamp_nice.svg" alt="NICE!" className="w-80 h-auto filter drop-shadow-2xl mx-auto" />
+            <img src="/assets/stamps/stamp_nice.svg" alt="NICE!" className="w-80 h-auto filter drop-shadow-2xl mx-auto" />
           ) : feedback.text === 'HOMERUN' ? (
-            <img src="/stamp_homerun.svg" alt="HOMERUN!" className="w-96 h-auto filter drop-shadow-2xl mx-auto" />
+            <img src="/assets/stamps/stamp_homerun.svg" alt="HOMERUN!" className="w-96 h-auto filter drop-shadow-2xl mx-auto" />
           ) : feedback.text === 'BALL' ? (
-            <img src="/stamp_ball.svg" alt="BALL" className="w-72 h-auto filter drop-shadow-2xl mx-auto" />
+            <img src="/assets/stamps/stamp_ball.svg" alt="BALL" className="w-72 h-auto filter drop-shadow-2xl mx-auto" />
           ) : (
             <div
               className="text-6xl font-black italic tracking-tighter drop-shadow-[0_8px_16px_rgba(0,0,0,0.9)] uppercase select-none font-sans"

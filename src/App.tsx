@@ -576,7 +576,7 @@ export function App() {
           <div className="flex items-center flex-wrap gap-3 text-xs">
             {/* Rookie Tier Badge + Level Star & EXP Bar */}
             <div className="flex items-center gap-2 bg-[#181a20]/90 border border-[#374151] px-2.5 py-1 rounded-xl shadow-md">
-              <img src="/hud_rookie.png" alt="Rookie" className="h-7 w-auto object-contain" />
+              <img src="/assets/images/ui/hud_rookie.png" alt="Rookie" className="h-7 w-auto object-contain" />
               <div className="flex flex-col">
                 <div className="flex items-center gap-1">
                   <span className="text-[11px] font-black text-amber-300">★ Lv. {level}</span>
