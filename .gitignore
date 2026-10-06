@@ -22,3 +22,15 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Temporary test & scratch files
+*.png
+*.jpg
+*.jpeg
+*.cjs
+*.m4a
+*.mp4
+*.webm
+*.wav
+generate_all_characters.py
+review_frames/
