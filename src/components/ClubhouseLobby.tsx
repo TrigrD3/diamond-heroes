@@ -73,19 +73,19 @@ export const ClubhouseLobby: React.FC<ClubhouseLobbyProps> = ({
   return (
     <div
       className="relative w-full h-[520px] max-w-[800px] mx-auto select-none overflow-hidden bg-cover bg-center rounded-2xl shadow-2xl border-4 border-[#1e293b]"
-      style={{ backgroundImage: `url('/assets/images/stadium/bh_stadium_1200.png')` }}
+      style={{ backgroundImage: `url('/assets/images/stadium/bh_clubhouse_interior.png')` }}
     >
-      {/* Stadium Sunlight Vignette */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-black/10 to-black/30 pointer-events-none" />
+      {/* Clubhouse Ambient Lighting Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/40 pointer-events-none" />
 
-      {/* Top Center: Clubhouse League Standing Banner */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#0f172a]/95 border-2 border-[#38bdf8] px-5 py-1.5 rounded-full shadow-2xl backdrop-blur-md">
-        <span className="text-amber-400 font-black text-sm uppercase tracking-wider">
-          ⚾ {season.seasonNumber}st REGULAR SEASON
+      {/* Top Center: Clubhouse Team Emblem & Season Progress */}
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 bg-[#0f172a]/95 border-2 border-amber-400/80 px-6 py-1.5 rounded-full shadow-2xl backdrop-blur-md">
+        <span className="text-amber-300 font-black text-sm uppercase tracking-wider flex items-center gap-1.5">
+          🏆 TEAM CLUBHOUSE & LOCKER ROOM
         </span>
         <span className="text-slate-400 font-bold text-xs">|</span>
         <span className="text-sky-300 font-extrabold text-xs">
-          Match #{season.gameNumber}/30
+          Season #{season.seasonNumber} (Game #{season.gameNumber}/30)
         </span>
       </div>
 
@@ -153,48 +153,36 @@ export const ClubhouseLobby: React.FC<ClubhouseLobbyProps> = ({
         </div>
       </div>
 
-      {/* Warm-Up Teammates Stretching & Tossing Across Outfield Dirt & Grass */}
+      {/* Locker Room Teammates & Squad Hanging Out */}
       <div className="absolute inset-0 pointer-events-none">
-        {/* Left Fielder warm-up stretch */}
-        <div className="absolute top-[230px] left-[210px] flex flex-col items-center animate-pulse">
-          <img src="/assets/images/characters/bh_fielder_clean.png" alt="Teammate" className="w-9 h-9" />
-          <span className="text-[9px] bg-black/70 text-slate-200 px-1 rounded font-bold">Marco</span>
+        {/* Teammate resting on left bench */}
+        <div className="absolute top-[280px] left-[180px] flex flex-col items-center">
+          <img src="/assets/images/characters/bh_fielder_clean.png" alt="Teammate" className="w-11 h-11" />
+          <span className="text-[9px] bg-black/80 text-amber-300 px-1.5 py-0.5 rounded font-black border border-amber-500/40">Marco (SS)</span>
         </div>
 
-        {/* Shortstop warm-up catch */}
-        <div className="absolute top-[260px] left-[320px] flex flex-col items-center">
-          <img src="/assets/images/characters/bh_fielder_clean.png" alt="Teammate" className="w-9 h-9 transform scale-x-[-1]" />
-          <span className="text-[9px] bg-black/70 text-slate-200 px-1 rounded font-bold">Lucas</span>
+        {/* Pitcher polishing ball by trophy case */}
+        <div className="absolute top-[255px] left-[390px] flex flex-col items-center">
+          <img src="/assets/images/characters/bh_pitcher_transparent.png" alt="Pitcher" className="w-16 h-16" />
+          <span className="text-[9px] bg-black/80 text-emerald-300 px-1.5 py-0.5 rounded font-black border border-emerald-500/40">Ace Pitcher</span>
         </div>
 
-        {/* Pitcher on Mound throwing warmups */}
-        <div className="absolute top-[220px] left-[380px] flex flex-col items-center">
-          <img src="/assets/images/characters/bh_pitcher_transparent.png" alt="Pitcher" className="w-14 h-14" />
-          <span className="text-[9px] bg-black/70 text-emerald-300 px-1 rounded font-bold">Mound</span>
-        </div>
-
-        {/* 2nd Baseman stretching */}
-        <div className="absolute top-[260px] left-[480px] flex flex-col items-center">
-          <img src="/assets/images/characters/bh_fielder_clean.png" alt="Teammate" className="w-9 h-9" />
-          <span className="text-[9px] bg-black/70 text-slate-200 px-1 rounded font-bold">Kirby</span>
-        </div>
-
-        {/* Right Fielder warm-up */}
-        <div className="absolute top-[230px] left-[590px] flex flex-col items-center">
-          <img src="/assets/images/characters/bh_fielder_clean.png" alt="Teammate" className="w-9 h-9 transform scale-x-[-1]" />
-          <span className="text-[9px] bg-black/70 text-slate-200 px-1 rounded font-bold">Jake</span>
+        {/* Teammate standing by right locker */}
+        <div className="absolute top-[280px] left-[610px] flex flex-col items-center">
+          <img src="/assets/images/characters/bh_fielder_clean.png" alt="Teammate" className="w-11 h-11 transform scale-x-[-1]" />
+          <span className="text-[9px] bg-black/80 text-sky-300 px-1.5 py-0.5 rounded font-black border border-sky-500/40">Lucas (CF)</span>
         </div>
       </div>
 
-      {/* Interactive Ground Cleanup Items (Click to Earn Free Coins & EXP) */}
+      {/* Interactive Ground Cleanup Items (Locker Room Gear Maintenance) */}
       {groundItems.map((item) =>
         !item.collected ? (
           <button
             key={item.id}
             onClick={() => handleCollectItem(item)}
-            className="absolute z-20 group transform hover:scale-125 transition-transform cursor-pointer drop-shadow-lg"
-            style={{ left: `${item.x}px`, top: `${item.y}px` }}
-            title="Click to clean up and collect coins!"
+            className="absolute z-20 group transform hover:scale-125 transition-transform cursor-pointer drop-shadow-xl"
+            style={{ left: `${item.x}px`, top: `${item.y + 20}px` }}
+            title="Clean locker room gear to collect free Coins and EXP!"
           >
             {item.type === 'glove' && (
               <img src="/assets/images/items_glove.png" alt="Glove" className="w-8 h-8 animate-bounce" />
@@ -208,8 +196,8 @@ export const ClubhouseLobby: React.FC<ClubhouseLobbyProps> = ({
             {item.type === 'ball' && (
               <img src="/assets/images/characters/bh_ball_clean.png" alt="Ball" className="w-5 h-5 animate-pulse" />
             )}
-            <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px] bg-amber-500 text-slate-950 font-black px-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow">
-              CLEAN 🪙
+            <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-[9px] bg-amber-500 text-slate-950 font-black px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap shadow-lg">
+              TIDY 🪙
             </span>
           </button>
         ) : null
@@ -224,13 +212,6 @@ export const ClubhouseLobby: React.FC<ClubhouseLobbyProps> = ({
           {floatingBonus.text}
         </div>
       )}
-
-      {/* Home Plate Pentagon Geometry in Foreground Dirt */}
-      <div className="absolute bottom-20 left-1/2 -translate-x-1/2 w-20 h-16 pointer-events-none opacity-80">
-        <svg viewBox="0 0 100 80" className="w-full h-full drop-shadow-md">
-          <polygon points="10,10 90,10 90,45 50,75 10,45" fill="#ffffff" stroke="#94a3b8" strokeWidth="3" />
-        </svg>
-      </div>
 
       {/* Slugger Avatar Character Standing in Batter's Box with Duffel Bag */}
       <div className="absolute bottom-6 right-[190px] z-20 flex items-end">
