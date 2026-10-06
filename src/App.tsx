@@ -27,6 +27,7 @@ import { BattingField } from './components/BattingField';
 import { MatchSimulationView } from './components/MatchSimulationView';
 import { PlayerCard } from './components/PlayerCard';
 import { ProShop } from './components/ProShop';
+import { ClubhouseLobby } from './components/ClubhouseLobby';
 import { CardsManager } from './components/CardsManager';
 import { TrainingFacility } from './components/TrainingFacility';
 import { StadiumManager } from './components/StadiumManager';
@@ -37,7 +38,10 @@ import { sound } from './utils/audio';
 type ModalType = 'CARDS' | 'TRAINING' | 'PLAYER' | 'SHOP' | 'STADIUM' | 'LEAGUE' | null;
 
 export function App() {
-  // Unified Game View - Stadium match is the permanent persistent world
+  // Screen state: 'LOBBY' (authentic Clubhouse home menu) vs 'MATCH' (playing game)
+  const [screenState, setScreenState] = useState<'LOBBY' | 'MATCH'>('LOBBY');
+
+  // Unified Game View - Modal overlays over the persistent stadium
   const [activeModal, setActiveModal] = useState<ModalType>(null);
 
   // Match View Mode: 'BAT' (authentic 3D duel) or 'SIMULATION' (lineup card & teammate simulation)
@@ -662,9 +666,25 @@ export function App() {
         {/* Authentic Game Hub Navigation Over Stadium */}
         <div className="max-w-6xl mx-auto px-4 flex gap-1 sm:gap-2 overflow-x-auto pb-2 pt-1 border-t border-slate-800/80">
           <button
-            onClick={() => setActiveModal(null)}
+            onClick={() => {
+              setScreenState('LOBBY');
+              setActiveModal(null);
+            }}
             className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
-              activeModal === null
+              screenState === 'LOBBY' && activeModal === null
+                ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400'
+                : 'text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800'
+            }`}
+          >
+            🏠 Clubhouse Lobby
+          </button>
+          <button
+            onClick={() => {
+              setScreenState('MATCH');
+              setActiveModal(null);
+            }}
+            className={`px-4 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all cursor-pointer ${
+              screenState === 'MATCH' && activeModal === null
                 ? 'bg-amber-500 text-slate-950 shadow-md ring-2 ring-amber-400'
                 : 'text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-800'
             }`}
@@ -736,70 +756,133 @@ export function App() {
 
       {/* Main Content Area: Persistent Stadium Diamond World */}
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 flex flex-col justify-center relative">
-        <div className="flex flex-col items-center justify-center space-y-3">
-          {/* View Mode Switching: Simulation View vs Batting Duel */}
-          {matchMode === 'SIMULATION' ? (
-            <MatchSimulationView
-              scoreboard={scoreboard}
-              homeLineup={homeLineup}
-              awayLineup={awayLineup}
-              homeTeamName="Texas"
-              awayTeamName={currentOpponent.name}
-              currentSimBatterIndex={simBatterIdx}
-              simOutcomeBanner={simBanner}
-              onSpeedChange={(spd) => setGameSpeed(spd)}
-              gameSpeed={gameSpeed}
-              onSkipToUserAtBat={() => {
-                sound.playCheer();
-                setMatchMode('BAT');
-              }}
-            />
-          ) : (
-            <BattingField
-              opponent={currentOpponent}
+        {screenState === 'LOBBY' ? (
+          <div className="flex flex-col items-center justify-center space-y-3">
+            <ClubhouseLobby
               playerStats={playerStats}
-              playerGear={playerGear}
-              activeCards={cards}
-              scoreboard={scoreboard}
               season={season}
-              comboGauge={comboGauge}
-              isAutoHomeRunReady={isAutoHomeRunReady}
+              level={level}
+              exp={exp}
+              maxExp={maxExp}
+              coins={coins}
+              cash={cash}
+              energy={energy}
               score={matchScore}
-              onInningEvent={handleInningEvent}
-              onBatterChanged={handleBatterChanged}
-              onOpenLeaderboard={() => alert('Global Facebook Leaderboard: Rank #12 (Score: ' + matchScore + ')')}
-              onActivateComboFever={() => {
-                if (isAutoHomeRunReady) sound.playCheer();
+              onPlayBall={() => {
+                sound.playCheer();
+                startNewMatch();
+                setScreenState('MATCH');
+              }}
+              onOpenTraining={() => setActiveModal('TRAINING')}
+              onOpenShop={() => setActiveModal('SHOP')}
+              onOpenCards={() => setActiveModal('CARDS')}
+              onOpenPlayer={() => setActiveModal('PLAYER')}
+              onCollectReward={(coinsEarned, expEarned) => {
+                setCoins((c) => c + coinsEarned);
+                setExp((e) => {
+                  let newExp = e + expEarned;
+                  if (newExp >= maxExp) {
+                    newExp -= maxExp;
+                    setLevel((l) => l + 1);
+                    setStatPoints((pts) => pts + 2);
+                  }
+                  return newExp;
+                });
               }}
             />
-          )}
 
-          {/* Quick Match Mode Switcher & In-Game Announcer Bar */}
-          <div className="max-w-[800px] mx-auto w-full bg-[#181a20]/95 border-2 border-[#334155] rounded-xl p-3 text-xs flex items-center justify-between shadow-xl">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <span className="font-black text-amber-400 shrink-0">📢 ANNOUNCER:</span>
-              <span className="text-slate-200 truncate font-mono">
-                {matchMode === 'SIMULATION'
-                  ? `Teammates in play! Watch simulation or click ⏩ to bat with Andy (#3 in lineup)!`
-                  : matchHistory[0]}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
+            {/* Clubhouse Announcer Bar */}
+            <div className="max-w-[800px] mx-auto w-full bg-[#181a20]/95 border-2 border-[#334155] rounded-xl p-3 text-xs flex items-center justify-between shadow-xl">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <span className="font-black text-amber-400 shrink-0">🏟️ CLUBHOUSE:</span>
+                <span className="text-slate-200 truncate font-mono">
+                  Welcome to the Clubhouse! Click items on the field to earn free Coins & EXP, or press PLAY BALL to start your regular season match!
+                </span>
+              </div>
               <button
-                onClick={() => setMatchMode(matchMode === 'SIMULATION' ? 'BAT' : 'SIMULATION')}
-                className="text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 font-black px-2.5 py-1 rounded-lg border border-slate-600 transition-colors cursor-pointer"
+                onClick={() => {
+                  sound.playCheer();
+                  startNewMatch();
+                  setScreenState('MATCH');
+                }}
+                className="text-[11px] bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-1 rounded-lg border border-emerald-400 transition-colors cursor-pointer shrink-0"
               >
-                {matchMode === 'SIMULATION' ? '🏏 Switch to Batting Duel' : '📋 Switch to Lineup View'}
-              </button>
-              <button
-                onClick={() => startNewMatch()}
-                className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
-              >
-                Restart (5⚡)
+                ⚾ PLAY BALL
               </button>
             </div>
           </div>
-        </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center space-y-3">
+            {/* View Mode Switching: Simulation View vs Batting Duel */}
+            {matchMode === 'SIMULATION' ? (
+              <MatchSimulationView
+                scoreboard={scoreboard}
+                homeLineup={homeLineup}
+                awayLineup={awayLineup}
+                homeTeamName="Texas"
+                awayTeamName={currentOpponent.name}
+                currentSimBatterIndex={simBatterIdx}
+                simOutcomeBanner={simBanner}
+                onSpeedChange={(spd) => setGameSpeed(spd)}
+                gameSpeed={gameSpeed}
+                onSkipToUserAtBat={() => {
+                  sound.playCheer();
+                  setMatchMode('BAT');
+                }}
+              />
+            ) : (
+              <BattingField
+                opponent={currentOpponent}
+                playerStats={playerStats}
+                playerGear={playerGear}
+                activeCards={cards}
+                scoreboard={scoreboard}
+                season={season}
+                comboGauge={comboGauge}
+                isAutoHomeRunReady={isAutoHomeRunReady}
+                score={matchScore}
+                onInningEvent={handleInningEvent}
+                onBatterChanged={handleBatterChanged}
+                onOpenLeaderboard={() => alert('Global Facebook Leaderboard: Rank #12 (Score: ' + matchScore + ')')}
+                onActivateComboFever={() => {
+                  if (isAutoHomeRunReady) sound.playCheer();
+                }}
+              />
+            )}
+
+            {/* Quick Match Mode Switcher & In-Game Announcer Bar */}
+            <div className="max-w-[800px] mx-auto w-full bg-[#181a20]/95 border-2 border-[#334155] rounded-xl p-3 text-xs flex items-center justify-between shadow-xl">
+              <div className="flex items-center gap-2 overflow-hidden">
+                <span className="font-black text-amber-400 shrink-0">📢 ANNOUNCER:</span>
+                <span className="text-slate-200 truncate font-mono">
+                  {matchMode === 'SIMULATION'
+                    ? `Teammates in play! Watch simulation or click ⏩ to bat with Andy (#3 in lineup)!`
+                    : matchHistory[0]}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => setMatchMode(matchMode === 'SIMULATION' ? 'BAT' : 'SIMULATION')}
+                  className="text-[11px] bg-slate-800 hover:bg-slate-700 text-amber-300 font-black px-2.5 py-1 rounded-lg border border-slate-600 transition-colors cursor-pointer"
+                >
+                  {matchMode === 'SIMULATION' ? '🏏 Switch to Batting Duel' : '📋 Switch to Lineup View'}
+                </button>
+                <button
+                  onClick={() => setScreenState('LOBBY')}
+                  className="text-[11px] bg-slate-800 hover:bg-slate-700 text-white font-bold px-2 py-1 rounded-lg border border-slate-600 cursor-pointer"
+                >
+                  🏠 Return to Lobby
+                </button>
+                <button
+                  onClick={() => startNewMatch()}
+                  className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
+                >
+                  Restart (5⚡)
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal Overlays over Stadium */}
         {activeModal && (
